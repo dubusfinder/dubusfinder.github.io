@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#102a43">
+  <meta name="description" content="Find Dhaka University bus routes and schedules.">
+  <title>DU BUS FINDER</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#"><span class="brand-mark">DU</span><span>BUS FINDER<small>University of Dhaka</small></span></a>
+    <button id="installBtn" class="install-btn" hidden>Install app</button>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="eyebrow">DHAKA UNIVERSITY • BUS INFORMATION</div>
+      <h1>Find your bus.<br><span>Plan your journey.</span></h1>
+      <p>Search bus schedules by stopage, time, route and direction.</p>
+      
+<div class="search-panel">
+  <label for="busSearch">Which bus are you looking for?</label>
+  <input id="busSearch" type="search"
+    placeholder="Search a bus name…" autocomplete="off">
+
+  <label for="stopSearch">Where are you boarding?</label>
+  <input id="stopSearch" type="search"
+    placeholder="Search a stopage…" autocomplete="off">
+
+  <div class="filters">
+    <div>
+      <label for="direction">Trip direction</label>
+      <select id="direction">
+        <option value="">All directions</option>
+        <option value="UP">Up trip</option>
+        <option value="DOWN">Down trip</option>
+      </select>
+    </div>
+    <div>
+      <label for="timeSearch">Around what time?</label>
+      <input id="timeSearch" type="time">
+    </div>
+  </div>
+
+  <button id="searchBtn" class="primary">
+    Find buses <span>→</span>
+  </button>
+</div>
+
+      <div class="notice"><span>i</span> Schedule-based estimates only. This is not live GPS tracking.</div>
+    </section>
+
+    <section class="content">
+      <div class="section-heading"><div><div class="eyebrow">QUICK SEARCH</div><h2>What do you need?</h2></div></div>
+      <div class="quick-grid">
+        <button class="quick-card" data-mode="stop"><span class="quick-icon">⌕</span><b>Buses from a stopage</b><small>Find buses and departure times</small></button>
+        <button class="quick-card" data-mode="near"><span class="quick-icon">◷</span><b>Within 30 minutes</b><small>See buses around your chosen time</small></button>
+        <button class="quick-card" data-mode="where"><span class="quick-icon">⌖</span><b>Where is my bus?</b><small>Estimate its scheduled position</small></button>
+        <button class="quick-card" data-mode="direction"><span class="quick-icon">⇅</span><b>Up / Down trips</b><small>Explore trips by direction</small></button>
+      </div>
+
+      <div class="results-head"><div><div class="eyebrow">SCHEDULE SEARCH</div><h2 id="resultTitle">Bus results</h2></div><span id="dataStatus" class="status">Database not connected</span></div>
+      <div id="results" class="results empty">
+        <div class="empty-icon">🚌</div>
+        <h3>Your bus information will appear here</h3>
+        <p>Load the Claude-generated database to activate schedule search. No bus times have been invented or pre-filled.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer><b>DU BUS FINDER</b><span>Independent student information project</span><span>Always verify schedule changes with the relevant bus group.</span></footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
