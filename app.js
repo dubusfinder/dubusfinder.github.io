@@ -1,7 +1,8 @@
 
-/* DU BUS FINDER - Enhanced Search System */
+/* DU BUS FINDER - Universal Smart Search */
 
-const API_URL = "https://script.google.com/macros/s/AKfycbztmllLo3702kye-QB3O-D809kj0TpovZRQzHdEx6-hjUlBKMO49StHpsCZjHJ9ANCPhA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbztmllLo3702kye-QB3-O-D809kj0TpovZRQzHdEx6-hjUlBKMO49StHpsCZjHJ9ANCPhA/exec";
+
 let scheduleRows = [];
 let busRows = [];
 let stopRows = [];
@@ -11,10 +12,13 @@ let deferredPrompt;
 const $ = (id) => document.getElementById(id);
 const results = $("results");
 
-/* Helper Functions */
+/* BASIC HELPERS */
 
 function normalize(v) {
-  return String(v ?? "").trim().toLowerCase();
+  return String(v ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
 }
 
 function escapeHtml(s) {
@@ -26,6 +30,224 @@ function escapeHtml(s) {
     "'": "&#39;"
   }[c]));
 }
+
+/* BANGLA + ENGLISH SMART NORMALIZATION */
+
+function toSearchSkeleton(value) {
+  let s = normalize(value);
+
+  // Bengali consonant mapping
+  const banglaMap = {
+    "ক":"k","খ":"kh","গ":"g","ঘ":"gh","ঙ":"ng",
+    "চ":"ch","ছ":"chh","জ":"j","ঝ":"jh","ঞ":"n",
+    "ট":"t","ঠ":"th","ড":"d","ঢ":"dh","ণ":"n",
+    "ত":"t","থ":"th","দ":"d","ধ":"dh","ন":"n",
+    "প":"p","ফ":"f","ব":"b","ভ":"bh","ম":"m",
+    "য":"j","র":"r","ল":"l","শ":"s","ষ":"s",
+    "স":"s","হ":"h","ড়":"r","ঢ়":"rh","য়":"y",
+    "ৎ":"t","ং":"ng","ঃ":"h"
+  };
+
+  // If Bengali is detected, convert consonants to Roman form
+  if (/[ঁ-৿]/.test(s)) {
+    s = [...s].map(ch => banglaMap[ch] || "").join("");
+  }
+
+  // Normalize common English spelling variations
+  s = s
+    .replace(/sh/g, "s")
+    .replace(/chh/g, "ch")
+    .replace(/ph/g, "f")
+    .replace(/bh/g, "b")
+    .replace(/kh/g, "k")
+    .replace(/gh/g, "g")
+    .replace(/th/g, "t")
+    .replace(/dh/g, "d")
+    .replace(/zh/g, "j")
+    .replace(/ng/g, "n")
+    .replace(/aa/g, "a")
+    .replace(/oo/g, "o")
+    .replace(/ee/g, "i");
+
+  // Ignore vowels and spaces for phonetic matching
+  return s.replace(/[aeiou\s\-_.,']/g, "");
+}
+
+/* EDIT DISTANCE FOR TYPING ERRORS */
+
+function editDistance(a, b) {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+
+  let previous = Array.from(
+    { length: b.length + 1 },
+    (_, i) => i
+  );
+
+  for (let i = 1; i <= a.length; i++) {
+    let current = [i];
+
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+
+      current[j] = Math.min(
+        current[j - 1] + 1,
+        previous[j] + 1,
+        previous[j - 1] + cost
+      );
+    }
+
+    previous = current;
+  }
+
+  return previous[b.length];
+}
+
+/* UNIVERSAL MATCH FUNCTION */
+
+function smartMatch(query, candidate) {
+  const q = normalize(query);
+  const c = normalize(candidate);
+
+  if (!q) return true;
+  if (!c) return false;
+
+  // Exact or partial text match
+  if (c.includes(q) || q.includes(c)) return true;
+
+  const qs = toSearchSkeleton(q);
+  const cs = toSearchSkeleton(c);
+
+  if (!qs || !cs) return false;
+
+  // Phonetic and partial match
+  if (cs.includes(qs) || qs.includes(cs)) return true;
+
+  // Fuzzy matching
+  if (Math.min(qs.length, cs.length) < 4) return false;
+
+  const distance = editDistance(qs, cs);
+  const threshold = qs.length >= 8 ? 2 : 1;
+
+  return distance <= threshold;
+}
+
+/* SUGGESTION SYSTEM */
+
+const busInput = $("busSearch");
+
+let suggestionBox = null;
+
+function createSuggestionBox() {
+  if (!busInput || suggestionBox) return;
+
+  suggestionBox = document.createElement("div");
+  suggestionBox.id = "busSuggestions";
+
+  Object.assign(suggestionBox.style, {
+    display: "none",
+    position: "relative",
+    width: "100%",
+    background: "#ffffff",
+    border: "1px solid #dce3eb",
+    borderRadius: "10px",
+    marginTop: "5px",
+    maxHeight: "220px",
+    overflowY: "auto",
+    zIndex: "9999",
+    boxShadow: "0 5px 15px rgba(0,0,0,0.10)"
+  });
+
+  busInput.insertAdjacentElement("afterend", suggestionBox);
+}
+
+function getBusNames() {
+  const names = [
+    ...busRows.map(b =>
+      b.bus_name || b.name || b.bus || ""
+    ),
+    ...scheduleRows.map(r => r.bus_name || "")
+  ];
+
+  return [...new Set(
+    names.map(n => String(n).trim()).filter(Boolean)
+  )];
+}
+
+function showBusSuggestions() {
+  if (!busInput || !scheduleRows.length) return;
+
+  const query = busInput.value.trim();
+
+  if (!query) {
+    suggestionBox.style.display = "none";
+    return;
+  }
+
+  const matches = getBusNames()
+    .filter(name => smartMatch(query, name))
+    .sort((a, b) => {
+      const q = normalize(query);
+
+      if (normalize(a) === q) return -1;
+      if (normalize(b) === q) return 1;
+
+      return a.localeCompare(b);
+    })
+    .slice(0, 8);
+
+  if (!matches.length) {
+    suggestionBox.style.display = "none";
+    return;
+  }
+
+  suggestionBox.innerHTML = matches.map(name => `
+    <div class="bus-suggestion"
+      data-name="${escapeHtml(name)}"
+      style="
+        padding: 11px 14px;
+        cursor: pointer;
+        border-bottom: 1px solid #edf0f4;
+        color: #263648;
+        font-size: 14px;
+      ">
+      🚌 ${escapeHtml(name)}
+    </div>
+  `).join("");
+
+  suggestionBox.style.display = "block";
+
+  suggestionBox.querySelectorAll(".bus-suggestion")
+    .forEach(item => {
+      item.addEventListener("mousedown", e => {
+        e.preventDefault();
+
+        busInput.value = item.dataset.name;
+        suggestionBox.style.display = "none";
+
+        runSearch();
+      });
+    });
+}
+
+createSuggestionBox();
+
+if (busInput) {
+  busInput.addEventListener("input", showBusSuggestions);
+
+  busInput.addEventListener("focus", showBusSuggestions);
+
+  busInput.addEventListener("blur", () => {
+    setTimeout(() => {
+      if (suggestionBox) {
+        suggestionBox.style.display = "none";
+      }
+    }, 150);
+  });
+}
+
+/* EMPTY STATE */
 
 function showEmpty(title, message) {
   $("resultTitle").textContent = title;
@@ -40,13 +262,15 @@ function showEmpty(title, message) {
 
 function setStatus(message, success = false) {
   $("dataStatus").textContent = message;
+
   $("dataStatus").style.background =
     success ? "#d9f2e6" : "#fff0d9";
+
   $("dataStatus").style.color =
     success ? "#12634f" : "#80551b";
 }
 
-/* Google Sheets Database Connection */
+/* DATABASE CONNECTION */
 
 function loadDatabase() {
   if (API_URL.includes("PASTE_YOUR")) {
@@ -100,6 +324,7 @@ function loadDatabase() {
   script.onerror = () => {
     clearTimeout(timeout);
     cleanup();
+
     setStatus("API connection failed");
     showEmpty("Connection failed", "Check the API URL and try again.");
   };
@@ -111,7 +336,7 @@ function loadDatabase() {
   document.body.appendChild(script);
 }
 
-/* Time Conversion: Supports 12-hour and 24-hour formats */
+/* TIME CONVERSION */
 
 function toMinutes(value) {
   if (!value) return null;
@@ -142,14 +367,14 @@ function toMinutes(value) {
   return hours * 60 + minutes;
 }
 
-/* Time Difference Across Midnight */
+/* TIME DIFFERENCE */
 
 function timeDifference(a, b) {
   const difference = Math.abs(a - b);
   return Math.min(difference, 1440 - difference);
 }
 
-/* Direction Matching */
+/* DIRECTION MATCHING */
 
 function directionMatches(rowDirection, selectedDirection) {
   if (!selectedDirection) return true;
@@ -168,7 +393,7 @@ function directionMatches(rowDirection, selectedDirection) {
   return true;
 }
 
-/* Display Search Results */
+/* DISPLAY RESULTS */
 
 function renderRows(rows, title) {
   $("resultTitle").textContent = title;
@@ -187,8 +412,6 @@ function renderRows(rows, title) {
     const bus = r.bus_name || "Bus name unavailable";
     const stop = r.stopage || r.stopage_name || "Stopage unavailable";
     const direction = r.direction || "Direction unavailable";
-
-    // Display trip_time only
     const time = r.trip_time || "Time unavailable";
 
     return `
@@ -203,7 +426,7 @@ function renderRows(rows, title) {
   }).join("");
 }
 
-/* Main Search Function */
+/* MAIN SMART SEARCH */
 
 function runSearch() {
   if (!scheduleRows.length) {
@@ -214,19 +437,22 @@ function runSearch() {
     return;
   }
 
-  const busInput = $("busSearch");
-  const bus = normalize(busInput ? busInput.value : "");
+  if (suggestionBox) {
+    suggestionBox.style.display = "none";
+  }
 
+  const bus = normalize(busInput ? busInput.value : "");
   const stop = normalize($("stopSearch").value);
   const dir = $("direction").value;
   const time = $("timeSearch").value;
 
   let rows = scheduleRows.filter(r => {
-    const busName = normalize(r.bus_name);
-    const stopName = normalize(r.stopage || r.stopage_name);
+    const busName = r.bus_name || "";
+    const stopName = r.stopage || r.stopage_name || "";
 
-    const busMatch = !bus || busName.includes(bus);
-    const stopMatch = !stop || stopName.includes(stop);
+    // Universal smart matching
+    const busMatch = !bus || smartMatch(bus, busName);
+    const stopMatch = !stop || smartMatch(stop, stopName);
 
     const directionMatch =
       directionMatches(r.direction, dir);
@@ -234,7 +460,7 @@ function runSearch() {
     return busMatch && stopMatch && directionMatch;
   });
 
-  /* Time Search: trip_time only, within ±30 minutes */
+  /* TIME SEARCH: ±30 MINUTES */
 
   if (time) {
     const target = toMinutes(time);
@@ -250,8 +476,6 @@ function runSearch() {
       return rowTime !== null &&
         timeDifference(rowTime, target) <= 30;
     });
-
-    /* Closest times appear first */
 
     rows.sort((a, b) => {
       const timeA = toMinutes(a.trip_time);
@@ -279,11 +503,11 @@ function runSearch() {
   renderRows(rows, title);
 }
 
-/* Search Button */
+/* SEARCH BUTTON */
 
 $("searchBtn").addEventListener("click", runSearch);
 
-/* Enter Key Support */
+/* ENTER KEY */
 
 ["busSearch", "stopSearch"].forEach(id => {
   const input = $(id);
@@ -299,7 +523,7 @@ $("timeSearch").addEventListener("keydown", e => {
   if (e.key === "Enter") runSearch();
 });
 
-/* Quick Search Cards */
+/* QUICK SEARCH CARDS */
 
 document.querySelectorAll(".quick-card").forEach(btn => {
   btn.addEventListener("click", () => {
@@ -324,7 +548,7 @@ document.querySelectorAll(".quick-card").forEach(btn => {
   });
 });
 
-/* PWA Installation */
+/* PWA INSTALLATION */
 
 window.addEventListener("beforeinstallprompt", e => {
   e.preventDefault();
@@ -340,7 +564,7 @@ $("installBtn").addEventListener("click", async () => {
   $("installBtn").hidden = true;
 });
 
-/* Service Worker */
+/* SERVICE WORKER */
 
 if (
   "serviceWorker" in navigator &&
@@ -349,6 +573,6 @@ if (
   navigator.serviceWorker.register("./sw.js").catch(() => {});
 }
 
-/* Load Database */
+/* LOAD DATABASE */
 
 loadDatabase();
