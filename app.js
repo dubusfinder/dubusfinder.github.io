@@ -1,7 +1,7 @@
 
 /* DU BUS FINDER - Smart Search System */
 
-const API_URL = "https://script.google.com/macros/s/AKfycbzxpN2M7gA9tz2ZIz4V9zxU18MDxH1A9DUndLrAIqoRaXCeLPa9rHng9dXL5Q2XD4pyQA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbztmllLo3702kye-QB3-O-D809kj0TpovZRQzHdEx6-hjUlBKMO49StHpsCZjHJ9ANCPhA/exec";
 
 let scheduleRows = [];
 let busRows = [];
