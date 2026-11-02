@@ -1,5 +1,5 @@
 
-/* DU BUS FINDER - Universal Smart Search */
+/* DU BUS FINDER - Smart Search System */
 
 const API_URL = "https://script.google.com/macros/s/AKfycbztmllLo3702kye-QB3-O-D809kj0TpovZRQzHdEx6-hjUlBKMO49StHpsCZjHJ9ANCPhA/exec";
 
@@ -12,13 +12,14 @@ let deferredPrompt;
 const $ = (id) => document.getElementById(id);
 const results = $("results");
 
-/* BASIC HELPERS */
+let suggestionPanels = {};
+
+/* ----------------------------------
+   BASIC HELPERS
+---------------------------------- */
 
 function normalize(v) {
-  return String(v ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
+  return String(v ?? "").trim().toLowerCase();
 }
 
 function escapeHtml(s) {
@@ -31,51 +32,101 @@ function escapeHtml(s) {
   }[c]));
 }
 
-/* BANGLA + ENGLISH SMART NORMALIZATION */
+function showEmpty(title, message) {
+  $("resultTitle").textContent = title;
+  results.className = "results empty";
 
-function toSearchSkeleton(value) {
-  let s = normalize(value);
+  results.innerHTML = `
+    <div class="empty-icon">🚌</div>
+    <h3>${escapeHtml(title)}</h3>
+    <p>${escapeHtml(message)}</p>
+  `;
+}
 
-  // Bengali consonant mapping
-  const banglaMap = {
-    "ক":"k","খ":"kh","গ":"g","ঘ":"gh","ঙ":"ng",
-    "চ":"ch","ছ":"chh","জ":"j","ঝ":"jh","ঞ":"n",
-    "ট":"t","ঠ":"th","ড":"d","ঢ":"dh","ণ":"n",
-    "ত":"t","থ":"th","দ":"d","ধ":"dh","ন":"n",
-    "প":"p","ফ":"f","ব":"b","ভ":"bh","ম":"m",
-    "য":"j","র":"r","ল":"l","শ":"s","ষ":"s",
-    "স":"s","হ":"h","ড়":"r","ঢ়":"rh","য়":"y",
-    "ৎ":"t","ং":"ng","ঃ":"h"
-  };
+function setStatus(message, success = false) {
+  $("dataStatus").textContent = message;
+  $("dataStatus").style.background =
+    success ? "#d9f2e6" : "#fff0d9";
+  $("dataStatus").style.color =
+    success ? "#12634f" : "#80551b";
+}
 
-  // If Bengali is detected, convert consonants to Roman form
-  if (/[ঁ-৿]/.test(s)) {
-    s = [...s].map(ch => banglaMap[ch] || "").join("");
-  }
+/* ----------------------------------
+   BANGLA TO ENGLISH TRANSLITERATION
+---------------------------------- */
 
-  // Normalize common English spelling variations
-  s = s
+const banglaMap = {
+  "অ":"o","আ":"a","ই":"i","ঈ":"i",
+  "উ":"u","ঊ":"u","ঋ":"ri",
+  "এ":"e","ঐ":"oi","ও":"o","ঔ":"ou",
+
+  "ক":"k","খ":"kh","গ":"g","ঘ":"gh",
+  "ঙ":"ng","চ":"ch","ছ":"chh",
+  "জ":"j","ঝ":"jh","ঞ":"n",
+
+  "ট":"t","ঠ":"th","ড":"d","ঢ":"dh",
+  "ণ":"n","ত":"t","থ":"th","দ":"d",
+  "ধ":"dh","ন":"n",
+
+  "প":"p","ফ":"ph","ব":"b","ভ":"bh",
+  "ম":"m","য":"j","র":"r","ল":"l",
+
+  "শ":"sh","ষ":"sh","স":"s","হ":"h",
+  "ড়":"r","ঢ়":"rh","য়":"y",
+
+  "ং":"ng","ঃ":"h","ঁ":"n",
+  "ৎ":"t","্":""
+};
+
+function transliterateBangla(value) {
+  let text = String(value ?? "");
+
+  return [...text].map(char => {
+    return banglaMap[char] ?? char;
+  }).join("");
+}
+
+/* ----------------------------------
+   SEARCH NORMALIZATION
+---------------------------------- */
+
+function searchNormalize(value) {
+  let text = normalize(value);
+
+  // Convert Bangla into approximate English spelling
+  text = transliterateBangla(text);
+
+  // Remove spaces and special characters
+  text = text.replace(/[^a-z0-9]/g, "");
+
+  // Common spelling variations
+  text = text
     .replace(/sh/g, "s")
     .replace(/chh/g, "ch")
+    .replace(/ch/g, "c")
     .replace(/ph/g, "f")
     .replace(/bh/g, "b")
+    .replace(/v/g, "b")
+    .replace(/w/g, "b")
+    .replace(/z/g, "j")
+    .replace(/y/g, "i")
+    .replace(/ou/g, "o")
+    .replace(/oo/g, "u")
+    .replace(/ee/g, "i")
+    .replace(/aa/g, "a")
     .replace(/kh/g, "k")
     .replace(/gh/g, "g")
     .replace(/th/g, "t")
-    .replace(/dh/g, "d")
-    .replace(/zh/g, "j")
-    .replace(/ng/g, "n")
-    .replace(/aa/g, "a")
-    .replace(/oo/g, "o")
-    .replace(/ee/g, "i");
+    .replace(/dh/g, "d");
 
-  // Ignore vowels and spaces for phonetic matching
-  return s.replace(/[aeiou\s\-_.,']/g, "");
+  return text;
 }
 
-/* EDIT DISTANCE FOR TYPING ERRORS */
+/* ----------------------------------
+   FUZZY MATCHING
+---------------------------------- */
 
-function editDistance(a, b) {
+function levenshtein(a, b) {
   if (a === b) return 0;
   if (!a.length) return b.length;
   if (!b.length) return a.length;
@@ -104,173 +155,50 @@ function editDistance(a, b) {
   return previous[b.length];
 }
 
-/* UNIVERSAL MATCH FUNCTION */
+function similarity(a, b) {
+  if (!a || !b) return 0;
 
-function smartMatch(query, candidate) {
-  const q = normalize(query);
-  const c = normalize(candidate);
+  if (a === b) return 1;
 
-  if (!q) return true;
-  if (!c) return false;
-
-  // Exact or partial text match
-  if (c.includes(q) || q.includes(c)) return true;
-
-  const qs = toSearchSkeleton(q);
-  const cs = toSearchSkeleton(c);
-
-  if (!qs || !cs) return false;
-
-  // Phonetic and partial match
-  if (cs.includes(qs) || qs.includes(cs)) return true;
-
-  // Fuzzy matching
-  if (Math.min(qs.length, cs.length) < 4) return false;
-
-  const distance = editDistance(qs, cs);
-  const threshold = qs.length >= 8 ? 2 : 1;
-
-  return distance <= threshold;
-}
-
-/* SUGGESTION SYSTEM */
-
-const busInput = $("busSearch");
-
-let suggestionBox = null;
-
-function createSuggestionBox() {
-  if (!busInput || suggestionBox) return;
-
-  suggestionBox = document.createElement("div");
-  suggestionBox.id = "busSuggestions";
-
-  Object.assign(suggestionBox.style, {
-    display: "none",
-    position: "relative",
-    width: "100%",
-    background: "#ffffff",
-    border: "1px solid #dce3eb",
-    borderRadius: "10px",
-    marginTop: "5px",
-    maxHeight: "220px",
-    overflowY: "auto",
-    zIndex: "9999",
-    boxShadow: "0 5px 15px rgba(0,0,0,0.10)"
-  });
-
-  busInput.insertAdjacentElement("afterend", suggestionBox);
-}
-
-function getBusNames() {
-  const names = [
-    ...busRows.map(b =>
-      b.bus_name || b.name || b.bus || ""
-    ),
-    ...scheduleRows.map(r => r.bus_name || "")
-  ];
-
-  return [...new Set(
-    names.map(n => String(n).trim()).filter(Boolean)
-  )];
-}
-
-function showBusSuggestions() {
-  if (!busInput || !scheduleRows.length) return;
-
-  const query = busInput.value.trim();
-
-  if (!query) {
-    suggestionBox.style.display = "none";
-    return;
+  if (a.includes(b) || b.includes(a)) {
+    return Math.min(a.length, b.length) /
+      Math.max(a.length, b.length);
   }
 
-  const matches = getBusNames()
-    .filter(name => smartMatch(query, name))
-    .sort((a, b) => {
-      const q = normalize(query);
+  const distance = levenshtein(a, b);
 
-      if (normalize(a) === q) return -1;
-      if (normalize(b) === q) return 1;
+  return 1 - distance / Math.max(a.length, b.length);
+}
 
-      return a.localeCompare(b);
-    })
-    .slice(0, 8);
+function getMatchScore(query, target) {
+  const q = searchNormalize(query);
+  const t = searchNormalize(target);
 
-  if (!matches.length) {
-    suggestionBox.style.display = "none";
-    return;
+  if (!q || !t) return 0;
+
+  if (q === t) return 100;
+
+  if (t.startsWith(q)) return 95;
+
+  if (t.includes(q)) return 90;
+
+  if (q.includes(t)) return 85;
+
+  const score = similarity(q, t);
+
+  // Short queries need stricter matching
+  const threshold = q.length <= 3 ? 0.75 : 0.55;
+
+  if (score >= threshold) {
+    return Math.round(score * 80);
   }
 
-  suggestionBox.innerHTML = matches.map(name => `
-    <div class="bus-suggestion"
-      data-name="${escapeHtml(name)}"
-      style="
-        padding: 11px 14px;
-        cursor: pointer;
-        border-bottom: 1px solid #edf0f4;
-        color: #263648;
-        font-size: 14px;
-      ">
-      🚌 ${escapeHtml(name)}
-    </div>
-  `).join("");
-
-  suggestionBox.style.display = "block";
-
-  suggestionBox.querySelectorAll(".bus-suggestion")
-    .forEach(item => {
-      item.addEventListener("mousedown", e => {
-        e.preventDefault();
-
-        busInput.value = item.dataset.name;
-        suggestionBox.style.display = "none";
-
-        runSearch();
-      });
-    });
+  return 0;
 }
 
-createSuggestionBox();
-
-if (busInput) {
-  busInput.addEventListener("input", showBusSuggestions);
-
-  busInput.addEventListener("focus", showBusSuggestions);
-
-  busInput.addEventListener("blur", () => {
-    setTimeout(() => {
-      if (suggestionBox) {
-        suggestionBox.style.display = "none";
-      }
-    }, 150);
-  });
-}
-
-/* EMPTY STATE */
-
-function showEmpty(title, message) {
-  $("resultTitle").textContent = title;
-  results.className = "results empty";
-
-  results.innerHTML = `
-    <div class="empty-icon">🚌</div>
-    <h3>${escapeHtml(title)}</h3>
-    <p>${escapeHtml(message)}</p>
-  `;
-}
-
-function setStatus(message, success = false) {
-  $("dataStatus").textContent = message;
-
-  $("dataStatus").style.background =
-    success ? "#d9f2e6" : "#fff0d9";
-
-  $("dataStatus").style.color =
-    success ? "#12634f" : "#80551b";
-}
-
-/* DATABASE CONNECTION */
+/* ----------------------------------
+   DATABASE CONNECTION
+---------------------------------- */
 
 function loadDatabase() {
   if (API_URL.includes("PASTE_YOUR")) {
@@ -324,7 +252,6 @@ function loadDatabase() {
   script.onerror = () => {
     clearTimeout(timeout);
     cleanup();
-
     setStatus("API connection failed");
     showEmpty("Connection failed", "Check the API URL and try again.");
   };
@@ -336,7 +263,238 @@ function loadDatabase() {
   document.body.appendChild(script);
 }
 
-/* TIME CONVERSION */
+/* ----------------------------------
+   GET UNIQUE BUS AND STOP NAMES
+---------------------------------- */
+
+function getBusNames() {
+  const names = new Set();
+
+  scheduleRows.forEach(row => {
+    if (row.bus_name) names.add(String(row.bus_name).trim());
+  });
+
+  busRows.forEach(row => {
+    const name = row.bus_name || row.name;
+    if (name) names.add(String(name).trim());
+  });
+
+  return [...names].filter(Boolean);
+}
+
+function getStopNames() {
+  const names = new Set();
+
+  scheduleRows.forEach(row => {
+    const name = row.stopage || row.stopage_name;
+    if (name) names.add(String(name).trim());
+  });
+
+  stopRows.forEach(row => {
+    const name =
+      row.stopage ||
+      row.stopage_name ||
+      row.stop_name ||
+      row.name;
+
+    if (name) names.add(String(name).trim());
+  });
+
+  return [...names].filter(Boolean);
+}
+
+/* ----------------------------------
+   SMART MATCH
+---------------------------------- */
+
+function findBestMatch(query, name) {
+  return getMatchScore(query, name);
+}
+
+function smartMatches(query, names) {
+  if (!query.trim()) return [];
+
+  return names
+    .map(name => ({
+      name,
+      score: findBestMatch(query, name)
+    }))
+    .filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 8);
+}
+
+/* ----------------------------------
+   LIVE SUGGESTION DESIGN
+---------------------------------- */
+
+function createSuggestionPanel(inputId) {
+  const input = $(inputId);
+
+  if (!input) return null;
+
+  const panel = document.createElement("div");
+
+  panel.style.cssText = `
+    display:none;
+    position:fixed;
+    z-index:99999;
+    background:#ffffff;
+    border:1px solid #ddd;
+    border-radius:10px;
+    box-shadow:0 5px 18px rgba(0,0,0,0.15);
+    max-height:260px;
+    overflow-y:auto;
+    padding:5px;
+  `;
+
+  document.body.appendChild(panel);
+
+  suggestionPanels[inputId] = panel;
+
+  return panel;
+}
+
+function positionPanel(input, panel) {
+  const rect = input.getBoundingClientRect();
+
+  panel.style.left = rect.left + "px";
+  panel.style.top = rect.bottom + 5 + "px";
+  panel.style.width = rect.width + "px";
+}
+
+function hideSuggestions(inputId) {
+  if (suggestionPanels[inputId]) {
+    suggestionPanels[inputId].style.display = "none";
+  }
+}
+
+function showSuggestions(inputId, matches) {
+  const input = $(inputId);
+  const panel = suggestionPanels[inputId];
+
+  if (!input || !panel) return;
+
+  if (!matches.length) {
+    hideSuggestions(inputId);
+    return;
+  }
+
+  panel.innerHTML = matches.map(item => `
+    <button
+      type="button"
+      data-value="${escapeHtml(item.name)}"
+      style="
+        display:block;
+        width:100%;
+        padding:11px 12px;
+        border:0;
+        border-bottom:1px solid #eee;
+        background:white;
+        text-align:left;
+        cursor:pointer;
+        color:#222;
+        font-size:14px;
+      "
+    >
+      🚌 ${escapeHtml(item.name)}
+    </button>
+  `).join("");
+
+  positionPanel(input, panel);
+  panel.style.display = "block";
+
+  panel.querySelectorAll("button").forEach(button => {
+    button.addEventListener("click", () => {
+      input.value = button.dataset.value;
+      hideSuggestions(inputId);
+      runSearch();
+    });
+  });
+}
+
+/* ----------------------------------
+   LIVE SEARCH SUGGESTIONS
+---------------------------------- */
+
+function setupSuggestions(inputId, getNames) {
+  const input = $(inputId);
+
+  if (!input) return;
+
+  const panel = createSuggestionPanel(inputId);
+
+  input.addEventListener("input", () => {
+    const query = input.value.trim();
+
+    if (!query || !scheduleRows.length) {
+      hideSuggestions(inputId);
+      return;
+    }
+
+    const matches = smartMatches(query, getNames());
+
+    showSuggestions(inputId, matches);
+  });
+
+  input.addEventListener("focus", () => {
+    const query = input.value.trim();
+
+    if (!query || !scheduleRows.length) return;
+
+    showSuggestions(
+      inputId,
+      smartMatches(query, getNames())
+    );
+  });
+
+  input.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      hideSuggestions(inputId);
+    }
+  });
+}
+
+document.addEventListener("click", e => {
+  Object.keys(suggestionPanels).forEach(id => {
+    const panel = suggestionPanels[id];
+    const input = $(id);
+
+    if (
+      panel &&
+      !panel.contains(e.target) &&
+      !input.contains(e.target)
+    ) {
+      hideSuggestions(id);
+    }
+  });
+});
+
+window.addEventListener("resize", () => {
+  Object.keys(suggestionPanels).forEach(id => {
+    const panel = suggestionPanels[id];
+    const input = $(id);
+
+    if (panel && input && panel.style.display !== "none") {
+      positionPanel(input, panel);
+    }
+  });
+});
+
+window.addEventListener("scroll", () => {
+  Object.keys(suggestionPanels).forEach(id => {
+    const panel = suggestionPanels[id];
+    const input = $(id);
+
+    if (panel && input && panel.style.display !== "none") {
+      positionPanel(input, panel);
+    }
+  });
+}, true);
+
+/* ----------------------------------
+   TIME CONVERSION
+---------------------------------- */
 
 function toMinutes(value) {
   if (!value) return null;
@@ -367,14 +525,14 @@ function toMinutes(value) {
   return hours * 60 + minutes;
 }
 
-/* TIME DIFFERENCE */
-
 function timeDifference(a, b) {
   const difference = Math.abs(a - b);
   return Math.min(difference, 1440 - difference);
 }
 
-/* DIRECTION MATCHING */
+/* ----------------------------------
+   DIRECTION MATCHING
+---------------------------------- */
 
 function directionMatches(rowDirection, selectedDirection) {
   if (!selectedDirection) return true;
@@ -393,7 +551,9 @@ function directionMatches(rowDirection, selectedDirection) {
   return true;
 }
 
-/* DISPLAY RESULTS */
+/* ----------------------------------
+   DISPLAY RESULTS
+---------------------------------- */
 
 function renderRows(rows, title) {
   $("resultTitle").textContent = title;
@@ -426,7 +586,9 @@ function renderRows(rows, title) {
   }).join("");
 }
 
-/* MAIN SMART SEARCH */
+/* ----------------------------------
+   MAIN SMART SEARCH
+---------------------------------- */
 
 function runSearch() {
   if (!scheduleRows.length) {
@@ -437,12 +599,13 @@ function runSearch() {
     return;
   }
 
-  if (suggestionBox) {
-    suggestionBox.style.display = "none";
-  }
+  hideSuggestions("busSearch");
+  hideSuggestions("stopSearch");
 
-  const bus = normalize(busInput ? busInput.value : "");
-  const stop = normalize($("stopSearch").value);
+  const busInput = $("busSearch");
+  const bus = busInput ? busInput.value.trim() : "";
+
+  const stop = $("stopSearch").value.trim();
   const dir = $("direction").value;
   const time = $("timeSearch").value;
 
@@ -450,9 +613,11 @@ function runSearch() {
     const busName = r.bus_name || "";
     const stopName = r.stopage || r.stopage_name || "";
 
-    // Universal smart matching
-    const busMatch = !bus || smartMatch(bus, busName);
-    const stopMatch = !stop || smartMatch(stop, stopName);
+    const busMatch =
+      !bus || getMatchScore(bus, busName) > 0;
+
+    const stopMatch =
+      !stop || getMatchScore(stop, stopName) > 0;
 
     const directionMatch =
       directionMatches(r.direction, dir);
@@ -460,7 +625,7 @@ function runSearch() {
     return busMatch && stopMatch && directionMatch;
   });
 
-  /* TIME SEARCH: ±30 MINUTES */
+  /* Time Search: trip_time only, within ±30 minutes */
 
   if (time) {
     const target = toMinutes(time);
@@ -503,18 +668,21 @@ function runSearch() {
   renderRows(rows, title);
 }
 
-/* SEARCH BUTTON */
+/* ----------------------------------
+   SEARCH BUTTON AND ENTER KEY
+---------------------------------- */
 
 $("searchBtn").addEventListener("click", runSearch);
-
-/* ENTER KEY */
 
 ["busSearch", "stopSearch"].forEach(id => {
   const input = $(id);
 
   if (input) {
     input.addEventListener("keydown", e => {
-      if (e.key === "Enter") runSearch();
+      if (e.key === "Enter") {
+        hideSuggestions(id);
+        runSearch();
+      }
     });
   }
 });
@@ -523,7 +691,9 @@ $("timeSearch").addEventListener("keydown", e => {
   if (e.key === "Enter") runSearch();
 });
 
-/* QUICK SEARCH CARDS */
+/* ----------------------------------
+   QUICK SEARCH CARDS
+---------------------------------- */
 
 document.querySelectorAll(".quick-card").forEach(btn => {
   btn.addEventListener("click", () => {
@@ -548,7 +718,9 @@ document.querySelectorAll(".quick-card").forEach(btn => {
   });
 });
 
-/* PWA INSTALLATION */
+/* ----------------------------------
+   PWA INSTALLATION
+---------------------------------- */
 
 window.addEventListener("beforeinstallprompt", e => {
   e.preventDefault();
@@ -564,7 +736,9 @@ $("installBtn").addEventListener("click", async () => {
   $("installBtn").hidden = true;
 });
 
-/* SERVICE WORKER */
+/* ----------------------------------
+   SERVICE WORKER
+---------------------------------- */
 
 if (
   "serviceWorker" in navigator &&
@@ -572,6 +746,13 @@ if (
 ) {
   navigator.serviceWorker.register("./sw.js").catch(() => {});
 }
+
+/* ----------------------------------
+   INITIALIZE SMART SEARCH
+---------------------------------- */
+
+setupSuggestions("busSearch", getBusNames);
+setupSuggestions("stopSearch", getStopNames);
 
 /* LOAD DATABASE */
 
