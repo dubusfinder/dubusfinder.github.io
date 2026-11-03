@@ -1,14 +1,19 @@
 
-/* DU BUS FINDER - Smart Search System */
+/* DU BUS FINDER - Smart Search System with Error Handling */
+
+"use strict";
 
 const API_URL = "https://script.google.com/macros/s/AKfycbzxpN2M7gA9tz2ZIz4V9zxU18MDxH1A9DUndLrAIqoRaXCeLPa9rHng9dXL5Q2XD4pyQA/exec";
+
 let scheduleRows = [];
 let busRows = [];
 let stopRows = [];
 let serviceDayRows = [];
 let deferredPrompt;
+let databaseLoading = false;
+let databaseLoaded = false;
 
-const $ = (id) => document.getElementById(id);
+const $ = id => document.getElementById(id);
 const results = $("results");
 
 let suggestionPanels = {};
@@ -31,8 +36,21 @@ function escapeHtml(s) {
   }[c]));
 }
 
+function setStatus(message, success = false) {
+  const status = $("dataStatus");
+  if (!status) return;
+
+  status.textContent = message;
+  status.style.background = success ? "#d9f2e6" : "#fff0d9";
+  status.style.color = success ? "#12634f" : "#80551b";
+}
+
 function showEmpty(title, message) {
-  $("resultTitle").textContent = title;
+  const titleElement = $("resultTitle");
+
+  if (titleElement) titleElement.textContent = title;
+  if (!results) return;
+
   results.className = "results empty";
 
   results.innerHTML = `
@@ -42,12 +60,31 @@ function showEmpty(title, message) {
   `;
 }
 
-function setStatus(message, success = false) {
-  $("dataStatus").textContent = message;
-  $("dataStatus").style.background =
-    success ? "#d9f2e6" : "#fff0d9";
-  $("dataStatus").style.color =
-    success ? "#12634f" : "#80551b";
+function showConnectionError(title, message) {
+  const titleElement = $("resultTitle");
+
+  if (titleElement) titleElement.textContent = title;
+  if (!results) return;
+
+  results.className = "results empty";
+
+  results.innerHTML = `
+    <div class="empty-icon">⚠️</div>
+    <h3>${escapeHtml(title)}</h3>
+    <p>${escapeHtml(message)}</p>
+    <button type="button" id="retryConnection"
+      style="margin-top:12px;padding:10px 20px;border:0;
+      border-radius:8px;background:#102a43;color:white;
+      cursor:pointer;font-size:14px;">
+      Try Again
+    </button>
+  `;
+
+  const retryButton = $("retryConnection");
+
+  if (retryButton) {
+    retryButton.addEventListener("click", loadDatabase);
+  }
 }
 
 /* ----------------------------------
@@ -58,31 +95,24 @@ const banglaMap = {
   "অ":"o","আ":"a","ই":"i","ঈ":"i",
   "উ":"u","ঊ":"u","ঋ":"ri",
   "এ":"e","ঐ":"oi","ও":"o","ঔ":"ou",
-
   "ক":"k","খ":"kh","গ":"g","ঘ":"gh",
   "ঙ":"ng","চ":"ch","ছ":"chh",
   "জ":"j","ঝ":"jh","ঞ":"n",
-
   "ট":"t","ঠ":"th","ড":"d","ঢ":"dh",
   "ণ":"n","ত":"t","থ":"th","দ":"d",
   "ধ":"dh","ন":"n",
-
   "প":"p","ফ":"ph","ব":"b","ভ":"bh",
   "ম":"m","য":"j","র":"r","ল":"l",
-
   "শ":"sh","ষ":"sh","স":"s","হ":"h",
   "ড়":"r","ঢ়":"rh","য়":"y",
-
   "ং":"ng","ঃ":"h","ঁ":"n",
   "ৎ":"t","্":""
 };
 
 function transliterateBangla(value) {
-  let text = String(value ?? "");
-
-  return [...text].map(char => {
-    return banglaMap[char] ?? char;
-  }).join("");
+  return [...String(value ?? "")]
+    .map(char => banglaMap[char] ?? char)
+    .join("");
 }
 
 /* ----------------------------------
@@ -92,13 +122,9 @@ function transliterateBangla(value) {
 function searchNormalize(value) {
   let text = normalize(value);
 
-  // Convert Bangla into approximate English spelling
   text = transliterateBangla(text);
-
-  // Remove spaces and special characters
   text = text.replace(/[^a-z0-9]/g, "");
 
-  // Common spelling variations
   text = text
     .replace(/sh/g, "s")
     .replace(/chh/g, "ch")
@@ -156,7 +182,6 @@ function levenshtein(a, b) {
 
 function similarity(a, b) {
   if (!a || !b) return 0;
-
   if (a === b) return 1;
 
   if (a.includes(b) || b.includes(a)) {
@@ -174,25 +199,15 @@ function getMatchScore(query, target) {
   const t = searchNormalize(target);
 
   if (!q || !t) return 0;
-
   if (q === t) return 100;
-
   if (t.startsWith(q)) return 95;
-
   if (t.includes(q)) return 90;
-
   if (q.includes(t)) return 85;
 
   const score = similarity(q, t);
-
-  // Short queries need stricter matching
   const threshold = q.length <= 3 ? 0.75 : 0.55;
 
-  if (score >= threshold) {
-    return Math.round(score * 80);
-  }
-
-  return 0;
+  return score >= threshold ? Math.round(score * 80) : 0;
 }
 
 /* ----------------------------------
@@ -200,11 +215,19 @@ function getMatchScore(query, target) {
 ---------------------------------- */
 
 function loadDatabase() {
-  if (API_URL.includes("PASTE_YOUR")) {
+  if (databaseLoading) return;
+
+  if (!API_URL || API_URL.includes("PASTE_YOUR")) {
     setStatus("API URL not configured");
-    showEmpty("API URL missing", "Add your Google Apps Script URL.");
+    showConnectionError(
+      "API URL missing",
+      "Please configure your Google Apps Script API URL."
+    );
     return;
   }
+
+  databaseLoading = true;
+  databaseLoaded = false;
 
   setStatus("Connecting to database...");
 
@@ -214,33 +237,74 @@ function loadDatabase() {
 
   const script = document.createElement("script");
 
-  const cleanup = () => {
+  let completed = false;
+
+  function cleanup() {
     delete window[callbackName];
     script.remove();
-  };
+    clearTimeout(timeout);
+    databaseLoading = false;
+  }
+
+  function fail(title, message, statusMessage) {
+    if (completed) return;
+
+    completed = true;
+    cleanup();
+
+    setStatus(statusMessage);
+    showConnectionError(title, message);
+  }
 
   const timeout = setTimeout(() => {
-    cleanup();
-    setStatus("Connection timed out");
-    showEmpty("Connection failed", "Check your API URL and deployment.");
+    fail(
+      "Connection timed out",
+      "The database did not respond in time. Please try again.",
+      "Connection timed out"
+    );
   }, 20000);
 
   window[callbackName] = function(data) {
-    clearTimeout(timeout);
-    cleanup();
+    if (completed) return;
 
     if (!data || data.success !== true) {
-      setStatus("Database error");
-      showEmpty("Database error", data?.error || "Could not load database.");
+      fail(
+        "Database error",
+        data?.error || "The database returned an invalid response.",
+        "Database error"
+      );
       return;
     }
 
-    busRows = data.buses || [];
-    stopRows = data.stops || [];
-    scheduleRows = data.schedules || [];
-    serviceDayRows = data.serviceDays || [];
+    if (
+      !Array.isArray(data.buses) ||
+      !Array.isArray(data.stops) ||
+      !Array.isArray(data.schedules)
+    ) {
+      fail(
+        "Invalid database response",
+        "Some database information is missing. Please try again.",
+        "Invalid database response"
+      );
+      return;
+    }
 
-    setStatus(`${scheduleRows.length} schedule rows loaded`, true);
+    completed = true;
+    cleanup();
+
+    busRows = data.buses;
+    stopRows = data.stops;
+    scheduleRows = data.schedules;
+    serviceDayRows = Array.isArray(data.serviceDays)
+      ? data.serviceDays
+      : [];
+
+    databaseLoaded = true;
+
+    setStatus(
+      `${scheduleRows.length} schedule rows loaded`,
+      true
+    );
 
     showEmpty(
       "Database connected!",
@@ -249,10 +313,11 @@ function loadDatabase() {
   };
 
   script.onerror = () => {
-    clearTimeout(timeout);
-    cleanup();
-    setStatus("API connection failed");
-    showEmpty("Connection failed", "Check the API URL and try again.");
+    fail(
+      "Connection failed",
+      "Could not connect to the database. Check your internet connection and try again.",
+      "API connection failed"
+    );
   };
 
   script.src = API_URL +
@@ -329,7 +394,6 @@ function smartMatches(query, names) {
 
 function createSuggestionPanel(inputId) {
   const input = $(inputId);
-
   if (!input) return null;
 
   const panel = document.createElement("div");
@@ -348,13 +412,14 @@ function createSuggestionPanel(inputId) {
   `;
 
   document.body.appendChild(panel);
-
   suggestionPanels[inputId] = panel;
 
   return panel;
 }
 
 function positionPanel(input, panel) {
+  if (!input || !panel) return;
+
   const rect = input.getBoundingClientRect();
 
   panel.style.left = rect.left + "px";
@@ -418,28 +483,28 @@ function showSuggestions(inputId, matches) {
 
 function setupSuggestions(inputId, getNames) {
   const input = $(inputId);
-
   if (!input) return;
 
-  const panel = createSuggestionPanel(inputId);
+  createSuggestionPanel(inputId);
 
   input.addEventListener("input", () => {
     const query = input.value.trim();
 
-    if (!query || !scheduleRows.length) {
+    if (!query || !databaseLoaded) {
       hideSuggestions(inputId);
       return;
     }
 
-    const matches = smartMatches(query, getNames());
-
-    showSuggestions(inputId, matches);
+    showSuggestions(
+      inputId,
+      smartMatches(query, getNames())
+    );
   });
 
   input.addEventListener("focus", () => {
     const query = input.value.trim();
 
-    if (!query || !scheduleRows.length) return;
+    if (!query || !databaseLoaded) return;
 
     showSuggestions(
       inputId,
@@ -461,6 +526,7 @@ document.addEventListener("click", e => {
 
     if (
       panel &&
+      input &&
       !panel.contains(e.target) &&
       !input.contains(e.target)
     ) {
@@ -469,7 +535,7 @@ document.addEventListener("click", e => {
   });
 });
 
-window.addEventListener("resize", () => {
+function repositionSuggestions() {
   Object.keys(suggestionPanels).forEach(id => {
     const panel = suggestionPanels[id];
     const input = $(id);
@@ -478,18 +544,10 @@ window.addEventListener("resize", () => {
       positionPanel(input, panel);
     }
   });
-});
+}
 
-window.addEventListener("scroll", () => {
-  Object.keys(suggestionPanels).forEach(id => {
-    const panel = suggestionPanels[id];
-    const input = $(id);
-
-    if (panel && input && panel.style.display !== "none") {
-      positionPanel(input, panel);
-    }
-  });
-}, true);
+window.addEventListener("resize", repositionSuggestions);
+window.addEventListener("scroll", repositionSuggestions, true);
 
 /* ----------------------------------
    TIME CONVERSION
@@ -555,7 +613,9 @@ function directionMatches(rowDirection, selectedDirection) {
 ---------------------------------- */
 
 function renderRows(rows, title) {
-  $("resultTitle").textContent = title;
+  if ($("resultTitle")) {
+    $("resultTitle").textContent = title;
+  }
 
   if (!rows.length) {
     showEmpty(
@@ -564,6 +624,8 @@ function renderRows(rows, title) {
     );
     return;
   }
+
+  if (!results) return;
 
   results.className = "results";
 
@@ -590,10 +652,10 @@ function renderRows(rows, title) {
 ---------------------------------- */
 
 function runSearch() {
-  if (!scheduleRows.length) {
+  if (!databaseLoaded || !scheduleRows.length) {
     showEmpty(
       "Database not loaded",
-      "Wait for the Google Sheets connection."
+      "Please wait for the database connection or try again."
     );
     return;
   }
@@ -602,11 +664,14 @@ function runSearch() {
   hideSuggestions("stopSearch");
 
   const busInput = $("busSearch");
-  const bus = busInput ? busInput.value.trim() : "";
+  const stopInput = $("stopSearch");
+  const directionInput = $("direction");
+  const timeInput = $("timeSearch");
 
-  const stop = $("stopSearch").value.trim();
-  const dir = $("direction").value;
-  const time = $("timeSearch").value;
+  const bus = busInput ? busInput.value.trim() : "";
+  const stop = stopInput ? stopInput.value.trim() : "";
+  const dir = directionInput ? directionInput.value : "";
+  const time = timeInput ? timeInput.value : "";
 
   let rows = scheduleRows.filter(r => {
     const busName = r.bus_name || "";
@@ -671,7 +736,11 @@ function runSearch() {
    SEARCH BUTTON AND ENTER KEY
 ---------------------------------- */
 
-$("searchBtn").addEventListener("click", runSearch);
+const searchButton = $("searchBtn");
+
+if (searchButton) {
+  searchButton.addEventListener("click", runSearch);
+}
 
 ["busSearch", "stopSearch"].forEach(id => {
   const input = $(id);
@@ -686,9 +755,13 @@ $("searchBtn").addEventListener("click", runSearch);
   }
 });
 
-$("timeSearch").addEventListener("keydown", e => {
-  if (e.key === "Enter") runSearch();
-});
+const timeSearchInput = $("timeSearch");
+
+if (timeSearchInput) {
+  timeSearchInput.addEventListener("keydown", e => {
+    if (e.key === "Enter") runSearch();
+  });
+}
 
 /* ----------------------------------
    QUICK SEARCH CARDS
@@ -699,11 +772,14 @@ document.querySelectorAll(".quick-card").forEach(btn => {
     const mode = btn.dataset.mode;
 
     if (mode === "near") {
-      $("timeSearch").focus();
-      $("resultTitle").textContent = "Buses within ±30 minutes";
+      $("timeSearch")?.focus();
+
+      if ($("resultTitle")) {
+        $("resultTitle").textContent = "Buses within ±30 minutes";
+      }
 
     } else if (mode === "direction") {
-      $("direction").focus();
+      $("direction")?.focus();
 
     } else if (mode === "where") {
       showEmpty(
@@ -712,7 +788,7 @@ document.querySelectorAll(".quick-card").forEach(btn => {
       );
 
     } else {
-      $("stopSearch").focus();
+      $("stopSearch")?.focus();
     }
   });
 });
@@ -724,16 +800,26 @@ document.querySelectorAll(".quick-card").forEach(btn => {
 window.addEventListener("beforeinstallprompt", e => {
   e.preventDefault();
   deferredPrompt = e;
-  $("installBtn").hidden = false;
+
+  const installButton = $("installBtn");
+  if (installButton) installButton.hidden = false;
 });
 
-$("installBtn").addEventListener("click", async () => {
-  if (!deferredPrompt) return;
+const installButton = $("installBtn");
 
-  await deferredPrompt.prompt();
-  deferredPrompt = null;
-  $("installBtn").hidden = true;
-});
+if (installButton) {
+  installButton.addEventListener("click", async () => {
+    if (!deferredPrompt) return;
+
+    try {
+      await deferredPrompt.prompt();
+      deferredPrompt = null;
+      installButton.hidden = true;
+    } catch (error) {
+      console.error("PWA installation error:", error);
+    }
+  });
+}
 
 /* ----------------------------------
    SERVICE WORKER
@@ -743,8 +829,23 @@ if (
   "serviceWorker" in navigator &&
   location.protocol.startsWith("http")
 ) {
-  navigator.serviceWorker.register("./sw.js").catch(() => {});
+  navigator.serviceWorker.register("./sw.js")
+    .catch(error => {
+      console.warn("Service Worker registration failed:", error);
+    });
 }
+
+/* ----------------------------------
+   GLOBAL ERROR HANDLING
+---------------------------------- */
+
+window.addEventListener("error", event => {
+  console.error("JavaScript error:", event.message);
+});
+
+window.addEventListener("unhandledrejection", event => {
+  console.error("Unhandled promise rejection:", event.reason);
+});
 
 /* ----------------------------------
    INITIALIZE SMART SEARCH
@@ -753,6 +854,8 @@ if (
 setupSuggestions("busSearch", getBusNames);
 setupSuggestions("stopSearch", getStopNames);
 
-/* LOAD DATABASE */
+/* ----------------------------------
+   LOAD DATABASE
+---------------------------------- */
 
 loadDatabase();
