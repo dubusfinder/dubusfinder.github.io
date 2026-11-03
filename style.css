@@ -2011,3 +2011,44 @@ main{
     max-width:calc(100% - 20px)!important;
   }
 }
+
+
+/* Header install button: override the old full-width mobile install style.
+   The header action must size to its own label and remain inside the grid cell. */
+@media(max-width:640px){
+  .header-inner{
+    grid-template-columns:minmax(0,1fr) max-content!important;
+  }
+  .header-actions{
+    display:flex!important;
+    flex:0 0 auto!important;
+    width:max-content!important;
+    max-width:100%!important;
+    min-width:0!important;
+    justify-self:end!important;
+    align-items:center!important;
+    overflow:visible!important;
+  }
+  .header-actions .install-btn{
+    display:inline-flex!important;
+    flex:0 0 auto!important;
+    align-items:center!important;
+    justify-content:center!important;
+    width:auto!important;
+    min-width:max-content!important;
+    max-width:100%!important;
+    box-sizing:border-box!important;
+    white-space:nowrap!important;
+    padding:7px 9px!important;
+    font-size:10px!important;
+    line-height:1.2!important;
+  }
+}
+@media(max-width:360px){
+  .header-inner{column-gap:5px!important}
+  .header-actions{gap:5px!important}
+  .header-actions .install-btn{
+    padding:6px 7px!important;
+    font-size:9px!important;
+  }
+}
