@@ -146,14 +146,8 @@
 
             <div class="field-group time-field-group">
               <div class="time-picker-layout">
-                <div class="time-picker-heading-row">
-                  <label for="timeHour">Time</label>
-                  <div class="search-window-heading-group">
-                    <span class="search-window-heading">Search Range</span>
-                    <span class="search-window-range" id="searchWindowRange" aria-live="polite" hidden></span>
-                  </div>
-                </div>
-                <div class="time-picker-controls-row">
+                <div class="time-control-column">
+                  <label class="time-control-label" for="timeHour">Time</label>
                   <div class="time-entry-row">
                     <div class="custom-time-picker" id="customTimePicker">
                       <select id="timeHour" aria-label="Hour" title="Hour"></select>
@@ -161,6 +155,12 @@
                       <select id="timeMinute" aria-label="Minute" title="Minute"></select>
                       <button type="button" class="period-toggle" id="periodToggle" aria-label="Switch AM or PM">AM</button>
                     </div>
+                  </div>
+                </div>
+                <div class="range-control-column">
+                  <div class="search-window-heading-group">
+                    <span class="search-window-heading">Search Range</span>
+                    <span class="search-window-range" id="searchWindowRange" aria-live="polite" hidden></span>
                   </div>
                   <div class="time-window-options" id="timeWindowOptions" role="group" aria-label="Search window">
                     <button type="button" class="time-window-btn" data-window="15" aria-pressed="false">±15</button>
