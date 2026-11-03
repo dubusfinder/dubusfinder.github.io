@@ -462,35 +462,36 @@ html[data-theme="dark"] .suggestion-panel button:hover{background:#2b4a43!import
 .direction-options button:hover{background:var(--primary-soft)!important}
 
 
-/* Easy, responsive digital time selector */
-.time-picker{
-  display:grid;
-  grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) minmax(0,1.15fr);
-  align-items:center;
-  gap:8px;
-  width:100%;
-  min-height:48px;
-}
-.time-picker select{
-  width:100%;
-  min-width:0;
-  height:48px;
-  padding:0 10px;
-  border:1px solid var(--border);
-  border-radius:var(--radius-sm);
-  background:var(--surface-soft);
-  color:var(--text);
-  font-size:14px;
-  font-weight:700;
-  cursor:pointer;
-}
-.time-picker select:focus{
-  outline:none;
-  border-color:var(--primary);
-  box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 15%,transparent);
-}
-.time-separator{color:var(--muted);font-weight:900;font-size:18px}
+/* Responsive analog clock time picker */
+.clock-picker{position:relative;width:100%}
+.clock-trigger{width:100%;height:48px;display:flex;align-items:center;gap:10px;padding:0 14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface-soft);color:var(--text);font-size:14px;font-weight:750;text-align:left;cursor:pointer}
+.clock-trigger:hover{border-color:var(--primary)}
+.clock-trigger-icon{font-size:22px;color:var(--primary);line-height:1}
+.clock-trigger-arrow{margin-left:auto;color:var(--muted)}
+.clock-popover{position:absolute;z-index:1500;top:calc(100% + 9px);left:0;width:min(100%,340px);padding:16px;border:1px solid var(--border);border-radius:18px;background:var(--surface);color:var(--text);box-shadow:var(--shadow-lg)}
+.clock-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.clock-digital{display:flex;align-items:center;gap:3px;font-size:30px;font-weight:850}
+.clock-part{padding:3px 5px;border:0;border-radius:7px;background:transparent;color:var(--muted);font-size:30px;font-weight:850;cursor:pointer}
+.clock-part.active{background:var(--primary-soft);color:var(--primary)}
+.clock-period{display:grid;gap:4px}
+.clock-period button{padding:5px 9px;border:1px solid var(--border);border-radius:7px;background:var(--surface-soft);color:var(--text);font-size:11px;font-weight:800;cursor:pointer}
+.clock-period button.active{border-color:var(--primary);background:var(--primary-soft);color:var(--primary)}
+.clock-step-label{margin:0 0 10px;color:var(--muted);font-size:11px;font-weight:750;text-align:center}
+.clock-face{position:relative;width:min(100%,270px);aspect-ratio:1;margin:0 auto;border-radius:50%;background:var(--surface-soft);border:1px solid var(--border)}
+.clock-face:before{content:"";position:absolute;left:50%;top:50%;width:7px;height:7px;border-radius:50%;background:var(--primary);transform:translate(-50%,-50%)}
+.clock-number{position:absolute;left:50%;top:50%;width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:50%;background:transparent;color:var(--text);font-size:13px;font-weight:750;cursor:pointer;transform:translate(-50%,-50%) rotate(var(--clock-angle)) translateY(-100px) rotate(calc(-1 * var(--clock-angle)))}
+.clock-number:hover{background:var(--primary-soft);color:var(--primary)}
+.clock-number.selected{background:var(--primary);color:#fff}
+.clock-footer{display:flex;align-items:center;justify-content:space-between;margin-top:13px}
+.clock-footer>div{display:flex;gap:7px}
+.clock-text-btn,.clock-done-btn{padding:8px 12px;border:0;border-radius:8px;background:transparent;color:var(--primary);font-size:12px;font-weight:800;cursor:pointer}
+.clock-done-btn{background:var(--primary);color:#fff}
 @media(max-width:640px){
-  .time-picker{gap:6px;min-height:46px}
-  .time-picker select{height:46px;padding:0 7px;font-size:13px}
+ .clock-popover{width:min(100%,340px);padding:13px}
+ .clock-number{transform:translate(-50%,-50%) rotate(var(--clock-angle)) translateY(-min(36vw,100px)) rotate(calc(-1 * var(--clock-angle)))}
+}
+@media(max-width:390px){
+ .clock-popover{left:50%;width:min(calc(100vw - 42px),340px);transform:translateX(-50%)}
+ .clock-face{width:min(100%,250px)}
+ .clock-number{width:32px;height:32px;font-size:12px}
 }
