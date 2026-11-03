@@ -1149,3 +1149,102 @@ html[data-theme="dark"] .custom-time-picker select option{background:#19272d;col
   .time-picker-controls-row .time-window-options{gap:4px}
   .time-picker-controls-row .time-window-btn{flex-basis:39px;min-width:39px;height:34px;min-height:34px;padding:3px;font-size:9px}
 }
+
+
+/* Mobile-safe two-column time controls for narrow Android screens */
+.time-picker-layout{
+  display:grid!important;
+  grid-template-columns:minmax(116px,0.85fr) minmax(0,1.15fr)!important;
+  grid-template-rows:auto auto!important;
+  column-gap:12px!important;
+  row-gap:5px!important;
+  align-items:start!important;
+  width:100%;
+  min-width:0;
+}
+.time-picker-heading-row,
+.time-picker-controls-row{
+  display:contents!important;
+}
+.time-picker-heading-row>label,
+.search-window-heading-group{
+  grid-row:1;
+  align-self:center;
+  min-width:0;
+}
+.time-picker-heading-row>label{grid-column:1}
+.search-window-heading-group{
+  grid-column:2;
+  display:flex;
+  align-items:center;
+  gap:5px;
+  overflow:hidden;
+  white-space:nowrap;
+}
+.search-window-heading{flex:0 0 auto}
+.search-window-range{
+  flex:1 1 auto;
+  min-width:0;
+  overflow:hidden!important;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.time-entry-row{
+  grid-column:1;
+  grid-row:2;
+  display:flex;
+  align-items:center;
+  gap:5px;
+  min-width:0;
+}
+.time-picker-controls-row .time-window-options{
+  grid-column:2;
+  grid-row:2;
+  display:flex;
+  justify-content:flex-start;
+  align-items:center;
+  gap:7px;
+  min-width:0;
+}
+@media(max-width:640px){
+  .time-picker-layout{
+    grid-template-columns:minmax(116px,0.9fr) minmax(0,1.1fr)!important;
+    column-gap:10px!important;
+    row-gap:5px!important;
+  }
+  .time-picker-heading-row>label,.search-window-heading{font-size:12px!important}
+  .search-window-heading-group{gap:4px}
+  .search-window-range{font-size:9.6px!important}
+  .time-entry-row .custom-time-picker{
+    flex:0 0 76px!important;
+    width:76px!important;
+    height:42px!important;
+  }
+  .time-entry-row .custom-time-picker select{
+    flex:0 0 28px!important;
+    width:28px!important;
+    font-size:12px!important;
+  }
+  .period-toggle{flex:0 0 34px!important;width:34px!important;height:39px!important;font-size:10px!important}
+  .time-picker-controls-row .time-window-btn{
+    flex:0 0 43px!important;
+    min-width:43px!important;
+    height:36px!important;
+    min-height:36px!important;
+    font-size:11px!important;
+  }
+}
+@media(max-width:390px){
+  .time-picker-layout{
+    grid-template-columns:minmax(112px,0.9fr) minmax(0,1.1fr)!important;
+    column-gap:8px!important;
+  }
+  .time-picker-heading-row>label,.search-window-heading{font-size:11px!important}
+  .search-window-range{font-size:8.8px!important}
+  .time-entry-row{gap:4px}
+  .time-entry-row .custom-time-picker{flex-basis:72px!important;width:72px!important}
+  .time-entry-row .custom-time-picker select{flex-basis:26px!important;width:26px!important;font-size:11px!important}
+  .period-toggle{flex-basis:32px!important;width:32px!important;height:38px!important;font-size:9px!important}
+  .time-picker-controls-row .time-window-options{gap:5px}
+  .time-picker-controls-row .time-window-btn{flex-basis:40px!important;min-width:40px!important}
+}
