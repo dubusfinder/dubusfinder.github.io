@@ -923,15 +923,15 @@ function renderRecentSection() {
 /* CUSTOM 12-HOUR TIME PICKER */
 let selectedTimePeriod = "AM";
 function updateTimeSearchValue() {
-  const hour = Number($("timeHour")?.value);
+  const hourValue = $("timeHour")?.value;
   const minuteValue = $("timeMinute")?.value;
-  if (!hour || minuteValue === "" || minuteValue == null) {
+  if (hourValue == null || hourValue === "" || minuteValue == null || minuteValue === "") {
     $("timeSearch").value = "";
     updateSearchWindowRange();
     return;
   }
-  let hour24 = hour % 12;
-  if (selectedTimePeriod === "PM") hour24 += 12;
+  const hour = Number(hourValue);
+  let hour24 = hour + (selectedTimePeriod === "PM" ? 12 : 0);
   $("timeSearch").value = String(hour24).padStart(2, "0") + ":" + minuteValue;
   updateSearchWindowRange();
 }
@@ -946,19 +946,18 @@ function setTimePeriod(period) {
 }
 function syncTimePickerFromValue(value) {
   if (!value) {
-    $("timeHour").value = ""; $("timeMinute").value = ""; $("timeSearch").value = "";
+    $("timeHour").value = "0"; $("timeMinute").value = "00"; $("timeSearch").value = "00:00";
     setTimePeriod("AM"); return;
   }
     const match = String(value).match(/^(\d{2}):(\d{2})$/);
   if (!match) return;
   const hour24 = Number(match[1]);
-  $("timeHour").value = String(hour24 % 12 || 12);
+  $("timeHour").value = String(hour24 % 12);
   $("timeMinute").value = match[2];
   setTimePeriod(hour24 >= 12 ? "PM" : "AM");
   updateTimeSearchValue();
-  syncClockPickerFromValue(value);
 }
-for (let hour = 1; hour <= 12; hour++) {
+for (let hour = 0; hour < 12; hour++) {
   const option = document.createElement("option");
   option.value = String(hour); option.textContent = String(hour).padStart(2, "0");
   $("timeHour")?.appendChild(option);
@@ -972,142 +971,11 @@ for (let minute = 0; minute < 60; minute++) {
 $("timeHour")?.addEventListener("change", updateTimeSearchValue);
 $("timeMinute")?.addEventListener("change", updateTimeSearchValue);
 document.querySelectorAll(".period-btn").forEach(button => button.addEventListener("click", () => setTimePeriod(button.dataset.period)));
+$("timeHour").value = "0";
+$("timeMinute").value = "00";
+$("timeSearch").value = "00:00";
 setTimePeriod("AM");
 
-/* MOBILE ANALOG CLOCK PICKER */
-const clockPicker = $("clockPicker");
-const clockTrigger = $("clockTrigger");
-const clockTriggerText = $("clockTriggerText");
-const clockPopover = $("clockPopover");
-const clockFace = $("clockFace");
-const clockStepLabel = $("clockStepLabel");
-const clockHourDisplay = $("clockHourDisplay");
-const clockMinuteDisplay = $("clockMinuteDisplay");
-const clockPeriodButtons = clockPopover?.querySelectorAll("[data-period]");
-let selectedClockHour = "";
-let selectedClockMinute = "";
-let selectedClockPeriod = "AM";
-let clockStep = "hour";
-let savedClockValue = "";
-
-function clockDisplayText() {
-  if (!selectedClockHour || selectedClockMinute === "") return "Select time";
-  return selectedClockHour + ":" + selectedClockMinute + " " + selectedClockPeriod;
-}
-function renderClockFace() {
-  if (!clockFace) return;
-  const values = clockStep === "hour"
-    ? Array.from({length:12}, (_,i) => String(i + 1))
-    : Array.from({length:12}, (_,i) => String(i * 5).padStart(2,"0"));
-  const hourAngle = selectedClockHour ? (Number(selectedClockHour) % 12) * 30 : 0;
-  const minuteAngle = selectedClockMinute !== "" ? Number(selectedClockMinute) * 6 : 0;
-  clockFace.innerHTML = `<div class="clock-hand clock-hour-hand" style="--hand-angle:${hourAngle}deg"></div><div class="clock-hand clock-minute-hand" style="--hand-angle:${minuteAngle}deg"></div>` + values.map((value,index) => {
-    const active = clockStep === "hour"
-      ? Number(selectedClockHour) === Number(value)
-      : Number(selectedClockMinute) === Number(value);
-    return `<button type="button" class="clock-number ${active ? "selected" : ""}" data-clock-value="${value}" style="--clock-angle:${index * 30}deg">${value}</button>`;
-  }).join("");
-  clockFace.querySelectorAll("[data-clock-value]").forEach(button => {
-    button.addEventListener("click", () => {
-      if (clockStep === "hour") {
-        selectedClockHour = button.dataset.clockValue.padStart(2,"0");
-        clockStep = "minute";
-      } else {
-        selectedClockMinute = button.dataset.clockValue;
-      }
-      syncClockDisplay();
-    });
-  });
-}
-function syncClockDisplay() {
-  if (clockHourDisplay) clockHourDisplay.textContent = selectedClockHour || "--";
-  if (clockMinuteDisplay) clockMinuteDisplay.textContent = selectedClockMinute === "" ? "--" : selectedClockMinute;
-  clockHourDisplay?.classList.toggle("active", clockStep === "hour");
-  clockMinuteDisplay?.classList.toggle("active", clockStep === "minute");
-  if (clockStepLabel) clockStepLabel.textContent = clockStep === "hour" ? "Select hour" : "Select minute";
-  clockPeriodButtons?.forEach(button => {
-    const active = button.dataset.period === selectedClockPeriod;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-pressed", String(active));
-  });
-  renderClockFace();
-}
-function syncClockPickerFromValue(value) {
-  if (!clockPicker) return;
-  if (!value) {
-    selectedClockHour = "";
-    selectedClockMinute = "";
-    selectedClockPeriod = "AM";
-  } else {
-    const match = String(value).match(/^(\d{2}):(\d{2})$/);
-    if (!match) return;
-    const hour24 = Number(match[1]);
-    selectedClockHour = String(hour24 % 12 || 12).padStart(2,"0");
-    selectedClockMinute = match[2];
-    selectedClockPeriod = hour24 >= 12 ? "PM" : "AM";
-  }
-  if (clockTriggerText) clockTriggerText.textContent = clockDisplayText();
-  syncClockDisplay();
-}
-function closeClockPicker() {
-  if (clockPopover) clockPopover.hidden = true;
-  clockTrigger?.setAttribute("aria-expanded","false");
-}
-function openClockPicker() {
-  savedClockValue = $("timeSearch")?.value || "";
-  syncClockPickerFromValue(savedClockValue);
-  clockStep = selectedClockHour ? "minute" : "hour";
-  if (clockPopover) clockPopover.hidden = false;
-  clockTrigger?.setAttribute("aria-expanded","true");
-  syncClockDisplay();
-}
-clockTrigger?.addEventListener("click", () => {
-  if (clockPopover?.hidden) openClockPicker();
-  else closeClockPicker();
-});
-clockHourDisplay?.addEventListener("click", () => { clockStep = "hour"; syncClockDisplay(); });
-clockMinuteDisplay?.addEventListener("click", () => { clockStep = "minute"; syncClockDisplay(); });
-clockPeriodButtons?.forEach(button => button.addEventListener("click", () => {
-  selectedClockPeriod = button.dataset.period;
-  syncClockDisplay();
-}));
-$("clockClear")?.addEventListener("click", () => {
-  selectedClockHour = "";
-  selectedClockMinute = "";
-  selectedClockPeriod = "AM";
-  clockStep = "hour";
-  $("timeSearch").value = "";
-  if ($("timeHour")) $("timeHour").value = "";
-  if ($("timeMinute")) $("timeMinute").value = "";
-  selectedTimePeriod = "AM";
-  updateSearchWindowRange();
-  if (clockTriggerText) clockTriggerText.textContent = "Select time";
-  syncClockDisplay();
-});
-$("clockCancel")?.addEventListener("click", () => {
-  syncClockPickerFromValue(savedClockValue);
-  closeClockPicker();
-});
-$("clockDone")?.addEventListener("click", () => {
-  if (!selectedClockHour || selectedClockMinute === "") {
-    clockStep = selectedClockHour ? "minute" : "hour";
-    syncClockDisplay();
-    return;
-  }
-  let hour24 = Number(selectedClockHour) % 12;
-  if (selectedClockPeriod === "PM") hour24 += 12;
-  $("timeSearch").value = String(hour24).padStart(2,"0") + ":" + selectedClockMinute;
-  selectedTimePeriod = selectedClockPeriod;
-  if ($("timeHour")) $("timeHour").value = String(Number(selectedClockHour));
-  if ($("timeMinute")) $("timeMinute").value = selectedClockMinute;
-  updateSearchWindowRange();
-  if (clockTriggerText) clockTriggerText.textContent = clockDisplayText();
-  closeClockPicker();
-});
-document.addEventListener("click", event => {
-  if (clockPicker && !clockPicker.contains(event.target)) closeClockPicker();
-});
-syncClockPickerFromValue($("timeSearch")?.value || "");
 function updateSearchWindowRange() {
   const output = $("searchWindowRange");
   if (!output) return;
