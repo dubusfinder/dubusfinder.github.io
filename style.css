@@ -1627,3 +1627,21 @@ html[data-theme="dark"] .custom-time-picker select option{background:#19272d;col
     height:34px!important;
   }
 }
+
+
+/* Mobile: align Search Range heading to the right edge of its own control */
+@media(max-width:640px){
+  .time-picker-heading-row .search-window-heading-group{
+    grid-column:2!important;
+    width:100%!important;
+    min-width:0!important;
+    justify-content:flex-end!important;
+    text-align:right!important;
+    margin-left:0!important;
+  }
+  .time-picker-heading-row .search-window-heading{
+    display:block!important;
+    width:100%!important;
+    text-align:right!important;
+  }
+}
