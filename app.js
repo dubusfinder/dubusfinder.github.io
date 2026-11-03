@@ -920,61 +920,37 @@ function renderRecentSection() {
    TIME CONVERSION
 ========================================= */
 
-/* CUSTOM 12-HOUR TIME PICKER */
-let selectedTimePeriod = "AM";
+/* SIMPLE 24-HOUR DIGITAL TIME PICKER */
 function updateTimeSearchValue() {
-  const hourValue = $("timeHour")?.value;
-  const minuteValue = $("timeMinute")?.value;
-  if (hourValue == null || hourValue === "" || minuteValue == null || minuteValue === "") {
-    $("timeSearch").value = "";
-    updateSearchWindowRange();
-    return;
-  }
-  const hour = Number(hourValue);
-  let hour24 = hour + (selectedTimePeriod === "PM" ? 12 : 0);
-  $("timeSearch").value = String(hour24).padStart(2, "0") + ":" + minuteValue;
+  const hourValue = $("timeHour")?.value ?? "00";
+  const minuteValue = $("timeMinute")?.value ?? "00";
+  $("timeSearch").value = String(hourValue).padStart(2,"0") + ":" + String(minuteValue).padStart(2,"0");
   updateSearchWindowRange();
 }
-function setTimePeriod(period) {
-  selectedTimePeriod = period === "PM" ? "PM" : "AM";
-  document.querySelectorAll(".period-btn").forEach(button => {
-    const active = button.dataset.period === selectedTimePeriod;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-pressed", String(active));
-  });
-  updateTimeSearchValue();
-}
 function syncTimePickerFromValue(value) {
-  if (!value) {
-    $("timeHour").value = "0"; $("timeMinute").value = "00"; $("timeSearch").value = "00:00";
-    setTimePeriod("AM"); return;
-  }
-    const match = String(value).match(/^(\d{2}):(\d{2})$/);
+  const match = String(value || "00:00").match(/^(\\d{2}):(\\d{2})$/);
   if (!match) return;
-  const hour24 = Number(match[1]);
-  $("timeHour").value = String(hour24 % 12);
+  $("timeHour").value = match[1];
   $("timeMinute").value = match[2];
-  setTimePeriod(hour24 >= 12 ? "PM" : "AM");
   updateTimeSearchValue();
 }
-for (let hour = 0; hour < 12; hour++) {
+for (let hour = 0; hour < 24; hour++) {
   const option = document.createElement("option");
-  option.value = String(hour); option.textContent = String(hour).padStart(2, "0");
+  option.value = String(hour).padStart(2,"0");
+  option.textContent = option.value;
   $("timeHour")?.appendChild(option);
 }
 for (let minute = 0; minute < 60; minute++) {
   const option = document.createElement("option");
-  option.value = String(minute).padStart(2, "0");
-  option.textContent = String(minute).padStart(2, "0");
+  option.value = String(minute).padStart(2,"0");
+  option.textContent = option.value;
   $("timeMinute")?.appendChild(option);
 }
-$("timeHour")?.addEventListener("change", updateTimeSearchValue);
-$("timeMinute")?.addEventListener("change", updateTimeSearchValue);
-document.querySelectorAll(".period-btn").forEach(button => button.addEventListener("click", () => setTimePeriod(button.dataset.period)));
-$("timeHour").value = "0";
+$("timeHour").value = "00";
 $("timeMinute").value = "00";
 $("timeSearch").value = "00:00";
-setTimePeriod("AM");
+$("timeHour")?.addEventListener("change", updateTimeSearchValue);
+$("timeMinute")?.addEventListener("change", updateTimeSearchValue);
 
 function updateSearchWindowRange() {
   const output = $("searchWindowRange");
