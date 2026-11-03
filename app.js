@@ -1123,11 +1123,11 @@ const directionSelect = $("direction");
 const directionCurrent = $("directionCurrent");
 const directionSwitch = $("directionSwitch");
 const directionOptions = $("directionOptions");
+const directionPicker = $("directionPicker");
 
 function updateDirectionControl() {
   if (!directionSelect || !directionCurrent) return;
-  directionCurrent.innerHTML = directionSelect.value +
-    ' <span aria-hidden="true">⌄</span>';
+  directionCurrent.textContent = directionSelect.value;
   directionCurrent.setAttribute("aria-label", "Direction: " + directionSelect.value);
 }
 
@@ -1137,36 +1137,42 @@ function closeDirectionOptions() {
   directionCurrent.setAttribute("aria-expanded", "false");
 }
 
-directionCurrent?.addEventListener("click", () => {
+function setDirection(value) {
+  if (!directionSelect) return;
+  directionSelect.value = value;
+  updateDirectionControl();
+  closeDirectionOptions();
+  directionSelect.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+directionCurrent?.addEventListener("click", event => {
+  event.stopPropagation();
   if (!directionOptions) return;
-  directionOptions.hidden = !directionOptions.hidden;
-  directionCurrent.setAttribute("aria-expanded", String(!directionOptions.hidden));
+  const willOpen = directionOptions.hidden;
+  directionOptions.hidden = !willOpen;
+  directionCurrent.setAttribute("aria-expanded", String(willOpen));
 });
 
 directionOptions?.querySelectorAll("[data-direction]").forEach(option => {
-  option.addEventListener("click", () => {
-    if (!directionSelect) return;
-    directionSelect.value = option.dataset.direction;
-    updateDirectionControl();
-    closeDirectionOptions();
-    directionSelect.dispatchEvent(new Event("change", { bubbles: true }));
+  option.addEventListener("click", event => {
+    event.stopPropagation();
+    setDirection(option.dataset.direction);
   });
 });
 
-directionSwitch?.addEventListener("click", () => {
+directionSwitch?.addEventListener("click", event => {
+  event.stopPropagation();
   if (!directionSelect) return;
-  directionSelect.value = directionSelect.value === "UP" ? "DOWN" : "UP";
-  updateDirectionControl();
-  closeDirectionOptions();
+  setDirection(directionSelect.value === "UP" ? "DOWN" : "UP");
 });
 
 document.addEventListener("click", event => {
-  const picker = $("directionPicker");
-  if (picker && !picker.contains(event.target)) closeDirectionOptions();
+  if (directionPicker && !directionPicker.contains(event.target)) {
+    closeDirectionOptions();
+  }
 });
 
 updateDirectionControl();
-
 
 ["busSearch", "stopSearch", "timeSearch"].forEach(id => {
   $(id)?.addEventListener("keydown", event => {
