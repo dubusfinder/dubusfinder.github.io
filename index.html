@@ -147,8 +147,17 @@
             <div class="field-group time-field-group">
               <div class="time-picker-layout">
                 <div class="exact-time-panel">
-                  <label for="timeSearch">Exact Time</label>
-                  <input type="time" id="timeSearch" aria-label="Select exact time">
+                  <label>Exact Time</label>
+                  <div class="custom-time-picker" id="customTimePicker">
+                    <select id="timeHour" aria-label="Hour"><option value="">HH</option></select>
+                    <span class="time-separator">:</span>
+                    <select id="timeMinute" aria-label="Minute"><option value="">MM</option></select>
+                    <div class="time-period" role="group" aria-label="AM or PM">
+                      <button type="button" class="period-btn active" data-period="AM" aria-pressed="true">AM</button>
+                      <button type="button" class="period-btn" data-period="PM" aria-pressed="false">PM</button>
+                    </div>
+                  </div>
+                  <input type="hidden" id="timeSearch" value="">
                 </div>
                 <div class="search-window-panel">
                   <span class="search-window-heading">Search Window</span>
