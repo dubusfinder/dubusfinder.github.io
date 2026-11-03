@@ -149,44 +149,15 @@
                 <div class="exact-time-panel">
                   <label>Exact Time</label>
                   <div class="custom-time-picker" id="customTimePicker">
-                    <select id="timeHour" aria-label="Hour"><option value="" selected>H</option></select>
+                    <select id="timeHour" aria-label="Hour" title="Hour"></select>
                     <span class="time-separator">:</span>
-                    <select id="timeMinute" aria-label="Minute"><option value="" selected>M</option></select>
+                    <select id="timeMinute" aria-label="Minute" title="Minute"></select>
                     <div class="time-period" role="group" aria-label="AM or PM">
                       <button type="button" class="period-btn active" data-period="AM" aria-pressed="true">AM</button>
                       <button type="button" class="period-btn" data-period="PM" aria-pressed="false">PM</button>
                     </div>
                   </div>
-                  <div class="clock-picker mobile-clock-picker" id="clockPicker">
-                    <button type="button" class="clock-trigger" id="clockTrigger" aria-haspopup="dialog" aria-expanded="false">
-                      <span class="clock-trigger-icon" aria-hidden="true">◷</span>
-                      <span id="clockTriggerText">Select time</span>
-                      <span class="clock-trigger-arrow" aria-hidden="true">▾</span>
-                    </button>
-                    <div class="clock-popover" id="clockPopover" role="group" aria-label="Choose bus search time">
-                      <div class="clock-top">
-                        <div class="clock-digital">
-                          <button type="button" id="clockHourDisplay" class="clock-part active">--</button>
-                          <span>:</span>
-                          <button type="button" id="clockMinuteDisplay" class="clock-part">--</button>
-                        </div>
-                        <div class="clock-period">
-                          <button type="button" data-period="AM" class="active">AM</button>
-                          <button type="button" data-period="PM">PM</button>
-                        </div>
-                      </div>
-                      <div class="clock-step-label" id="clockStepLabel">Select hour</div>
-                      <div class="clock-face" id="clockFace" aria-label="Clock face"></div>
-                      <div class="clock-footer">
-                        <button type="button" id="clockClear" class="clock-text-btn">Clear</button>
-                        <div>
-                          <button type="button" id="clockCancel" class="clock-text-btn">Cancel</button>
-                          <button type="button" id="clockDone" class="clock-done-btn">Done</button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <input type="hidden" id="timeSearch" value="">
+                  <input type="hidden" id="timeSearch" value="00:00">
                 </div>
                 <div class="search-window-panel">
                   <div class="search-window-heading-row"><span class="search-window-heading">Search Window</span><span class="search-window-range" id="searchWindowRange" aria-live="polite" hidden></span></div>
