@@ -1055,6 +1055,9 @@ $("timeWindowOptions")?.addEventListener("click", event => {
   setTimeWindow(current === next ? 0 : next);
 });
 
+// Start with ±15 minutes selected; users can deselect it or choose another range.
+setTimeWindow(15);
+
 /* =========================================
    MAIN SEARCH
 ========================================= */
