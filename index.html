@@ -333,29 +333,7 @@
 
   <!-- JAVASCRIPT -->
   <script src="./app.js"></script>
-  <script>
-    (() => {
-      const select = document.getElementById("direction");
-      const current = document.getElementById("directionCurrent");
-      const switcher = document.getElementById("directionSwitch");
-      const options = document.getElementById("directionOptions");
-      const picker = document.getElementById("directionPicker");
-      if (!select || !current || !switcher || !options || !picker) return;
-      const paint = () => { current.innerHTML = select.value + ' <span>⌄</span>'; };
-      const close = () => { options.hidden = true; current.setAttribute("aria-expanded", "false"); };
-      const choose = value => { select.value = value; paint(); close(); };
-      current.addEventListener("click", () => {
-        options.hidden = !options.hidden;
-        current.setAttribute("aria-expanded", String(!options.hidden));
-      });
-      switcher.addEventListener("click", () => choose(select.value === "UP" ? "DOWN" : "UP"));
-      options.querySelectorAll("[data-direction]").forEach(button => {
-        button.addEventListener("click", () => choose(button.dataset.direction));
-      });
-      document.addEventListener("click", event => { if (!picker.contains(event.target)) close(); });
-      paint();
-    })();
-  </script>
+
 
 
 </body>
