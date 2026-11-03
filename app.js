@@ -920,37 +920,47 @@ function renderRecentSection() {
    TIME CONVERSION
 ========================================= */
 
-/* SIMPLE 24-HOUR DIGITAL TIME PICKER */
+/* SIMPLE 12-HOUR DIGITAL TIME PICKER WITH AM/PM */
 function updateTimeSearchValue() {
-  const hourValue = $("timeHour")?.value ?? "00";
-  const minuteValue = $("timeMinute")?.value ?? "00";
-  $("timeSearch").value = String(hourValue).padStart(2,"0") + ":" + String(minuteValue).padStart(2,"0");
+  const hour12 = Number($("timeHour")?.value || 12);
+  const minute = Number($("timeMinute")?.value || 0);
+  const period = $("periodToggle")?.textContent.trim() || "AM";
+  let hour24 = hour12 % 12;
+  if (period === "PM") hour24 += 12;
+  $("timeSearch").value = String(hour24).padStart(2,"0") + ":" + String(minute).padStart(2,"0");
   updateSearchWindowRange();
 }
 function syncTimePickerFromValue(value) {
-  const match = String(value || "00:00").match(/^(\\d{2}):(\\d{2})$/);
+  const match = String(value || "00:00").match(/^(\d{2}):(\d{2})$/);
   if (!match) return;
-  $("timeHour").value = match[1];
+  const hour24 = Number(match[1]);
+  $("timeHour").value = String(hour24 % 12 || 12);
   $("timeMinute").value = match[2];
+  $("periodToggle").textContent = hour24 >= 12 ? "PM" : "AM";
   updateTimeSearchValue();
 }
-for (let hour = 0; hour < 24; hour++) {
+for (let hour = 1; hour <= 12; hour++) {
   const option = document.createElement("option");
-  option.value = String(hour).padStart(2,"0");
-  option.textContent = option.value;
+  option.value = String(hour);
+  option.textContent = String(hour).padStart(2,"0");
   $("timeHour")?.appendChild(option);
 }
 for (let minute = 0; minute < 60; minute++) {
   const option = document.createElement("option");
-  option.value = String(minute).padStart(2,"0");
-  option.textContent = option.value;
+  option.value = String(minute);
+  option.textContent = String(minute).padStart(2,"0");
   $("timeMinute")?.appendChild(option);
 }
-$("timeHour").value = "00";
+$("timeHour").value = "12";
 $("timeMinute").value = "00";
+$("periodToggle").textContent = "AM";
 $("timeSearch").value = "00:00";
 $("timeHour")?.addEventListener("change", updateTimeSearchValue);
 $("timeMinute")?.addEventListener("change", updateTimeSearchValue);
+$("periodToggle")?.addEventListener("click", () => {
+  $("periodToggle").textContent = $("periodToggle").textContent.trim() === "AM" ? "PM" : "AM";
+  updateTimeSearchValue();
+});
 
 function updateSearchWindowRange() {
   const output = $("searchWindowRange");
