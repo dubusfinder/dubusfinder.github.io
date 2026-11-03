@@ -899,6 +899,7 @@ function renderRecentSection() {
       $("stopSearch").value = item.stop || "";
       $("direction").value = item.direction || "";
       $("timeSearch").value = item.time || "";
+      syncTimePickerFromValue(item.time || "");
 
       runSearch();
 
@@ -1112,6 +1113,48 @@ function runSearch() {
     block: "start"
   });
 }
+
+/* =========================================
+   DIGITAL TIME PICKER
+========================================= */
+
+const timeHour = $("timeHour");
+const timeMinute = $("timeMinute");
+const timePeriod = $("timePeriod");
+const timeSearchInput = $("timeSearch");
+
+function syncTimeSearchValue() {
+  if (!timeHour || !timeMinute || !timePeriod || !timeSearchInput) return;
+  if (!timeHour.value || !timeMinute.value || !timePeriod.value) {
+    timeSearchInput.value = "";
+    return;
+  }
+
+  let hour = Number(timeHour.value) % 12;
+  if (timePeriod.value === "PM") hour += 12;
+  timeSearchInput.value = String(hour).padStart(2, "0") + ":" + timeMinute.value;
+}
+
+function syncTimePickerFromValue(value) {
+  if (!timeHour || !timeMinute || !timePeriod) return;
+  if (!value) {
+    timeHour.value = "";
+    timeMinute.value = "";
+    timePeriod.value = "";
+    return;
+  }
+
+  const match = String(value).match(/^(\\d{2}):(\\d{2})$/);
+  if (!match) return;
+  const hour = Number(match[1]);
+  timeHour.value = String(hour % 12 || 12).padStart(2, "0");
+  timeMinute.value = match[2];
+  timePeriod.value = hour >= 12 ? "PM" : "AM";
+}
+
+[timeHour, timeMinute, timePeriod].forEach(control => {
+  control?.addEventListener("change", syncTimeSearchValue);
+});
 
 /* =========================================
    SEARCH EVENTS
