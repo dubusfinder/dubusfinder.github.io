@@ -1439,3 +1439,46 @@ renderFavoriteSection();
 renderRecentSection();
 
 loadDatabase();
+
+
+/* MOBILE NAVIGATION MENU */
+(() => {
+  const menuButton = $("mobileMenuToggle");
+  const navigation = $("mainNavigation");
+  if (!menuButton || !navigation) return;
+
+  function closeMobileMenu() {
+    navigation.classList.remove("is-open");
+    menuButton.setAttribute("aria-expanded", "false");
+    menuButton.setAttribute("aria-label", "Open navigation menu");
+  }
+
+  menuButton.addEventListener("click", event => {
+    event.preventDefault();
+    event.stopPropagation();
+    const isOpen = navigation.classList.toggle("is-open");
+    menuButton.setAttribute("aria-expanded", String(isOpen));
+    menuButton.setAttribute(
+      "aria-label",
+      isOpen ? "Close navigation menu" : "Open navigation menu"
+    );
+  });
+
+  navigation.querySelectorAll("a").forEach(link => {
+    link.addEventListener("click", closeMobileMenu);
+  });
+
+  document.addEventListener("click", event => {
+    if (!navigation.contains(event.target) && !menuButton.contains(event.target)) {
+      closeMobileMenu();
+    }
+  });
+
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape") closeMobileMenu();
+  });
+
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 640) closeMobileMenu();
+  });
+})();
