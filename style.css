@@ -1248,3 +1248,15 @@ html[data-theme="dark"] .custom-time-picker select option{background:#19272d;col
   .time-picker-controls-row .time-window-options{gap:5px}
   .time-picker-controls-row .time-window-btn{flex-basis:40px!important;min-width:40px!important}
 }
+
+
+/* Hide the time range label on mobile to prevent layout overflow */
+@media(max-width:640px){
+  .search-window-range{
+    display:none!important;
+  }
+  .search-window-heading-group{
+    overflow:visible!important;
+    white-space:nowrap!important;
+  }
+}
