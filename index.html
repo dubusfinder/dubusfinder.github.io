@@ -8,24 +8,16 @@
   <title>DU BUS FINDER - Dhaka University Bus Schedule</title>
 
   <meta name="description" content="Find Dhaka University bus schedules, routes, stopages and departure times easily with DU BUS FINDER.">
-
   <meta name="keywords" content="Dhaka University Bus, DU Bus Schedule, DU Bus Route, Dhaka University Transport">
-
   <meta name="author" content="DU BUS FINDER">
-
   <meta name="theme-color" content="#102a43">
-
   <meta name="robots" content="index, follow">
+  <meta name="color-scheme" content="light dark">
 
-  <!-- PWA Manifest -->
   <link rel="manifest" href="./manifest.json">
-
-  <!-- Website Icon -->
   <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
-
   <link rel="apple-touch-icon" href="./icon-192.png">
 
-  <!-- Open Graph / Facebook / Messenger -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="DU BUS FINDER - Dhaka University Bus Schedule">
   <meta property="og:description" content="Find Dhaka University bus routes, stopages and schedules easily.">
@@ -33,97 +25,183 @@
   <meta property="og:site_name" content="DU BUS FINDER">
   <meta property="og:image" content="https://dubusfinder.github.io/icon-512.png">
 
-  <!-- Twitter / X -->
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="DU BUS FINDER">
   <meta name="twitter:description" content="Dhaka University Bus Schedule Finder">
   <meta name="twitter:image" content="https://dubusfinder.github.io/icon-512.png">
 
-  <!-- Stylesheet -->
   <link rel="stylesheet" href="./style.css">
 </head>
 
 <body>
 
+  <!-- HEADER -->
   <header class="topbar">
-    <a class="brand" href="#">
+
+    <a class="brand" href="./" aria-label="DU BUS FINDER Home">
       <span class="brand-mark">DU</span>
-      <span>
-        BUS FINDER
+
+      <span class="brand-text">
+        <strong>BUS FINDER</strong>
         <small>University of Dhaka</small>
       </span>
     </a>
 
-    <button id="installBtn" class="install-btn" hidden>
-      Install app
-    </button>
+    <nav class="main-nav" aria-label="Main navigation">
+      <a href="#search-section">Find a bus</a>
+      <a href="#quick-search">Explore</a>
+      <a href="#results-section">Schedules</a>
+    </nav>
+
+    <div class="header-actions">
+
+      <button
+        type="button"
+        id="themeToggle"
+        class="theme-toggle"
+        aria-label="Toggle dark mode"
+        title="Change appearance"
+      >
+        <span class="theme-icon">◐</span>
+      </button>
+
+      <button id="installBtn" class="install-btn" hidden>
+        <span>↓</span> Install app
+      </button>
+
+    </div>
+
   </header>
+
 
   <main>
 
-    <section class="hero">
+    <!-- HERO / SEARCH -->
+    <section class="hero" id="search-section">
 
-      <div class="eyebrow">
-        DHAKA UNIVERSITY • BUS INFORMATION
-      </div>
+      <div class="hero-inner">
 
-      <h1>
-        Find your bus.<br>
-        <span>Plan your journey.</span>
-      </h1>
+        <div class="hero-copy">
 
-      <p>
-        Search bus schedules by stopage, time, route and direction.
-      </p>
-
-      <div class="search-panel">
-
-        <label for="busSearch">
-          Which bus are you looking for?
-        </label>
-
-        <input
-          id="busSearch"
-          type="search"
-          placeholder="Search a bus name…"
-          autocomplete="off"
-        >
-
-        <label for="stopSearch">
-          Where are you boarding?
-        </label>
-
-        <input
-          id="stopSearch"
-          type="search"
-          placeholder="Search a stopage…"
-          autocomplete="off"
-        >
-
-        <div class="filters">
-
-          <div>
-            <label for="direction">Trip direction</label>
-
-            <select id="direction">
-              <option value="">All directions</option>
-              <option value="UP">Up trip</option>
-              <option value="DOWN">Down trip</option>
-            </select>
+          <div class="eyebrow">
+            <span class="live-dot"></span>
+            DHAKA UNIVERSITY TRANSPORT
           </div>
 
-          <div>
-            <label for="timeSearch">Around what time?</label>
-            <input id="timeSearch" type="time">
+          <h1>
+            Find your bus.<br>
+            <span>Plan your journey.</span>
+          </h1>
+
+          <p class="hero-description">
+            Your university bus schedule, routes and stopage
+            information — all in one place.
+          </p>
+
+          <div class="hero-points">
+            <span>✓ Easy bus search</span>
+            <span>✓ Stopage information</span>
+            <span>✓ Offline support</span>
           </div>
 
         </div>
 
-        <button id="searchBtn" class="primary">
-          Find buses <span>→</span>
-        </button>
+
+        <!-- SEARCH PANEL -->
+        <div class="search-panel">
+
+          <div class="search-panel-heading">
+            <div>
+              <span class="panel-label">BUS SEARCH</span>
+              <h2>Where do you want to go?</h2>
+            </div>
+
+            <span class="search-panel-icon">⌕</span>
+          </div>
+
+
+          <div class="form-group">
+            <label for="busSearch">
+              <span class="field-number">01</span>
+              Which bus are you looking for?
+            </label>
+
+            <div class="input-wrap">
+              <span class="input-icon">🚌</span>
+
+              <input
+                id="busSearch"
+                type="search"
+                placeholder="Search a bus name..."
+                autocomplete="off"
+                aria-label="Search bus name"
+              >
+            </div>
+          </div>
+
+
+          <div class="form-group">
+            <label for="stopSearch">
+              <span class="field-number">02</span>
+              Where are you boarding?
+            </label>
+
+            <div class="input-wrap">
+              <span class="input-icon">📍</span>
+
+              <input
+                id="stopSearch"
+                type="search"
+                placeholder="Search a stopage..."
+                autocomplete="off"
+                aria-label="Search stopage"
+              >
+            </div>
+          </div>
+
+
+          <div class="filters">
+
+            <div class="form-group">
+              <label for="direction">
+                Trip direction
+              </label>
+
+              <select id="direction">
+                <option value="">All directions</option>
+                <option value="UP">Up trip</option>
+                <option value="DOWN">Down trip</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="timeSearch">
+                Around what time?
+              </label>
+
+              <input
+                id="timeSearch"
+                type="time"
+                aria-label="Search around a time"
+              >
+            </div>
+
+          </div>
+
+
+          <button id="searchBtn" class="primary">
+            <span>Find buses</span>
+            <span class="button-arrow">→</span>
+          </button>
+
+          <p class="search-hint">
+            Search by bus name, stopage, direction or time.
+          </p>
+
+        </div>
 
       </div>
+
 
       <div class="notice">
         <span>i</span>
@@ -132,83 +210,164 @@
 
     </section>
 
+
+    <!-- MAIN CONTENT -->
     <section class="content">
 
-      <div class="section-heading">
-        <div>
-          <div class="eyebrow">QUICK SEARCH</div>
-          <h2>What do you need?</h2>
-        </div>
-      </div>
 
-      <div class="quick-grid">
+      <!-- QUICK SEARCH -->
+      <section id="quick-search" class="quick-section">
 
-        <button class="quick-card" data-mode="stop">
-          <span class="quick-icon">⌕</span>
-          <b>Buses from a stopage</b>
-          <small>Find buses and departure times</small>
-        </button>
+        <div class="section-heading">
 
-        <button class="quick-card" data-mode="near">
-          <span class="quick-icon">◷</span>
-          <b>Within 30 minutes</b>
-          <small>See buses around your chosen time</small>
-        </button>
+          <div>
+            <div class="eyebrow">QUICK ACCESS</div>
+            <h2>Explore bus services</h2>
+            <p class="section-description">
+              Find useful bus information with one click.
+            </p>
+          </div>
 
-        <button class="quick-card" data-mode="where">
-          <span class="quick-icon">⌖</span>
-          <b>Where is my bus?</b>
-          <small>Estimate its scheduled position</small>
-        </button>
-
-        <button class="quick-card" data-mode="direction">
-          <span class="quick-icon">⇅</span>
-          <b>Up / Down trips</b>
-          <small>Explore trips by direction</small>
-        </button>
-
-      </div>
-
-      <div class="results-head">
-
-        <div>
-          <div class="eyebrow">SCHEDULE SEARCH</div>
-          <h2 id="resultTitle">Bus results</h2>
         </div>
 
-        <span id="dataStatus" class="status">
-          Database not connected
-        </span>
 
-      </div>
+        <div class="quick-grid">
 
-      <div id="results" class="results empty">
+          <button class="quick-card" data-mode="stop">
+            <span class="quick-icon">⌕</span>
+            <span class="quick-card-content">
+              <b>Buses from a stopage</b>
+              <small>Find buses and departure times</small>
+            </span>
+            <span class="card-arrow">→</span>
+          </button>
 
-        <div class="empty-icon">🚌</div>
 
-        <h3>Your bus information will appear here</h3>
+          <button class="quick-card" data-mode="near">
+            <span class="quick-icon">◷</span>
+            <span class="quick-card-content">
+              <b>Within 30 minutes</b>
+              <small>See buses around your chosen time</small>
+            </span>
+            <span class="card-arrow">→</span>
+          </button>
 
-        <p>
-          Load the Claude-generated database to activate schedule search.
-          No bus times have been invented or pre-filled.
-        </p>
 
-      </div>
+          <button class="quick-card" data-mode="where">
+            <span class="quick-icon">⌖</span>
+            <span class="quick-card-content">
+              <b>Where is my bus?</b>
+              <small>Estimate its scheduled position</small>
+            </span>
+            <span class="card-arrow">→</span>
+          </button>
+
+
+          <button class="quick-card" data-mode="direction">
+            <span class="quick-icon">⇅</span>
+            <span class="quick-card-content">
+              <b>Up / Down trips</b>
+              <small>Explore trips by direction</small>
+            </span>
+            <span class="card-arrow">→</span>
+          </button>
+
+        </div>
+
+      </section>
+
+
+      <!-- RESULTS -->
+      <section id="results-section" class="results-section">
+
+        <div class="results-head">
+
+          <div>
+            <div class="eyebrow">BUS INFORMATION</div>
+            <h2 id="resultTitle">Bus results</h2>
+            <p class="section-description">
+              Your matching bus schedules will appear here.
+            </p>
+          </div>
+
+          <span id="dataStatus" class="status">
+            Database not connected
+          </span>
+
+        </div>
+
+
+        <div id="results" class="results empty">
+
+          <div class="empty-icon">🚌</div>
+
+          <h3>Your bus information will appear here</h3>
+
+          <p>
+            Connect to the database to load bus schedules.
+            Once saved, you can also search offline.
+          </p>
+
+        </div>
+
+      </section>
+
+
+      <!-- PROJECT INFORMATION -->
+      <section class="about-section">
+
+        <div class="about-icon">🎓</div>
+
+        <div class="about-content">
+          <div class="eyebrow">ABOUT THE PROJECT</div>
+
+          <h2>Making university travel easier.</h2>
+
+          <p>
+            DU BUS FINDER is an independent student information
+            project designed to make Dhaka University bus
+            schedules easier to explore.
+          </p>
+        </div>
+
+      </section>
 
     </section>
 
   </main>
 
-  <footer>
-    <b>DU BUS FINDER</b>
-    <span>Independent student information project</span>
-    <span>Always verify schedule changes with the relevant bus group.</span>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+
+    <div class="footer-main">
+
+      <div class="footer-brand">
+        <strong>DU BUS FINDER</strong>
+        <small>University of Dhaka</small>
+      </div>
+
+      <p>
+        Independent student information project.
+      </p>
+
+    </div>
+
+    <div class="footer-bottom">
+      <span>Made for Dhaka University students.</span>
+
+      <span>
+        Always verify schedule changes with the relevant bus group.
+      </span>
+    </div>
+
   </footer>
 
-  <!-- XLSX Library -->
+
+  <!-- XLSX LIBRARY -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-  <!-- Main JavaScript -->
+  <!-- MAIN JAVASCRIPT -->
   <script src="./app.js"></script>
 
 </body>
