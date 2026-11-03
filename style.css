@@ -751,3 +751,40 @@ html[data-theme="dark"] .custom-time-picker select option{background:#19272d;col
 .custom-time-picker select::-ms-expand{display:none!important}
 .time-separator{padding:0 3px;color:var(--text);font-size:17px;font-weight:800}
 @media(max-width:640px){.custom-time-picker{height:46px}.custom-time-picker select{flex-basis:54px!important;width:54px!important;font-size:15px}}
+
+
+/* Exact-time row and compact search-window alignment */
+.time-picker-layout{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);align-items:end;gap:14px}
+.time-entry-row{display:flex;align-items:center;gap:8px;min-width:0}
+.custom-time-picker{flex:1 1 auto;min-width:0}
+.custom-time-picker select{flex:0 0 54px!important;width:54px!important}
+.period-toggle{flex:0 0 43px;height:48px;padding:0 5px;border:1px solid var(--border);border-radius:10px;background:var(--surface-soft);color:var(--primary);font-size:13px;font-weight:900;cursor:pointer}
+.period-toggle:active{background:var(--primary);color:#fff}
+.search-window-topline{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:48px;min-width:0}
+.search-window-heading-row{display:flex;align-items:center;flex-wrap:nowrap;gap:7px;min-width:0}
+.search-window-heading{margin:0;font-size:13px;white-space:nowrap}
+.search-window-range{font-size:10.4px!important;line-height:1.2;white-space:nowrap}
+.time-window-options{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex:0 0 auto}
+.time-window-btn{min-height:38px;height:38px;min-width:43px;padding:5px 7px;font-size:12px}
+@media(max-width:640px){
+  .time-picker-layout{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:8px}
+  .time-entry-row{gap:5px}
+  .period-toggle{flex-basis:36px;height:46px;font-size:11px}
+  .custom-time-picker{height:46px;padding:3px!important}
+  .custom-time-picker select{flex-basis:43px!important;width:43px!important;font-size:14px!important}
+  .search-window-topline{gap:5px;min-height:46px}
+  .search-window-heading-row{gap:4px}
+  .search-window-heading{font-size:11px}
+  .search-window-range{font-size:8.8px!important}
+  .time-window-options{gap:4px}
+  .time-window-btn{height:36px;min-height:36px;min-width:35px;padding:4px;font-size:10px}
+}
+@media(max-width:390px){
+  .time-picker-layout{grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);gap:6px}
+  .period-toggle{flex-basis:32px;padding:0 3px;font-size:10px}
+  .custom-time-picker select{flex-basis:37px!important;width:37px!important;font-size:12px!important}
+  .search-window-heading{font-size:10px}
+  .search-window-range{font-size:8px!important}
+  .time-window-options{gap:3px}
+  .time-window-btn{min-width:31px;padding:3px;font-size:9px}
+}
