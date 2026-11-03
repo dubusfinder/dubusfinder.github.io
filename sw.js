@@ -1,12 +1,14 @@
 
-const CACHE = "du-bus-finder-v2";
+const CACHE = "du-bus-finder-v3";
 
 const ASSETS = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
-  "./manifest.json"
+  "./manifest.json",
+  "./icon-192.png",
+  "./icon-512.png"
 ];
 
 self.addEventListener("install", event => {
@@ -47,6 +49,7 @@ self.addEventListener("fetch", event => {
     url.pathname.endsWith("/app.js") ||
     url.pathname.endsWith("/index.html") ||
     url.pathname.endsWith("/style.css") ||
+    url.pathname.endsWith("/manifest.json") ||
     request.mode === "navigate";
 
   if (isAppFile) {
