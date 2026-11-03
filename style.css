@@ -324,3 +324,74 @@ html[data-theme="dark"] .search-section .section-heading p{color:#d8e5e8}
   :root{--muted:#3f5661;--border:#9eafaa}
   html[data-theme="dark"]{--muted:#d0dce1;--border:#657985}
 }
+
+
+/* === Final theme clarity and direction selector === */
+:root{
+  --background:#e9f0ee;
+  --surface:#f7faf8;
+  --surface-soft:#eaf1ee;
+  --primary:#075f50;
+  --primary-hover:#064b40;
+  --border:#b9cbc5;
+}
+html[data-theme="dark"]{
+  --background:#0b151b;
+  --surface:#182832;
+  --surface-soft:#223640;
+  --primary:#08765f;
+  --primary-hover:#09624f;
+  --border:#49616b;
+}
+/* The search heading sits on the page surface, not the dark hero. */
+.search-section .section-heading h2{color:var(--text)!important}
+.search-section .section-heading p{color:var(--muted)!important}
+.theme-toggle{
+  background:var(--primary-soft);
+  border:2px solid var(--primary);
+  color:var(--text);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 13%,transparent);
+}
+.theme-toggle:hover{background:var(--primary-soft);border-color:var(--primary-hover)}
+.search-btn,.install-btn,.retry-button{
+  background:#075f50!important;
+  color:#fff!important;
+  box-shadow:none!important;
+  text-shadow:none!important;
+}
+.search-btn:hover,.install-btn:hover,.retry-button:hover{background:#064b40!important}
+html[data-theme="dark"] .search-btn,
+html[data-theme="dark"] .install-btn,
+html[data-theme="dark"] .retry-button{background:#08765f!important;color:#fff!important}
+html[data-theme="dark"] .search-btn:hover,
+html[data-theme="dark"] .install-btn:hover,
+html[data-theme="dark"] .retry-button:hover{background:#09624f!important}
+.suggestion-panel{
+  background:var(--surface)!important;
+  border:1px solid var(--border)!important;
+  box-shadow:0 12px 28px rgba(0,0,0,.22)!important;
+}
+.suggestion-panel button{color:var(--text)!important;background:var(--surface)!important}
+.suggestion-panel button:hover{background:var(--primary-soft)!important}
+html[data-theme="dark"] .suggestion-panel button{color:#f1f6f8!important;background:#182832!important}
+html[data-theme="dark"] .suggestion-panel button:hover{background:#294b43!important}
+
+.direction-picker{position:relative;width:100%}
+.direction-native-select{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important;overflow:hidden!important}
+.direction-control{display:flex;align-items:stretch;gap:8px;width:100%;height:48px}
+.direction-current,.direction-switch{
+  border:1px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--surface-soft);color:var(--text);font-weight:850;cursor:pointer;
+}
+.direction-current{display:flex;align-items:center;justify-content:space-between;flex:1;padding:0 14px;font-size:14px}
+.direction-current span{font-size:18px;color:var(--muted)}
+.direction-switch{width:50px;flex:0 0 50px;font-size:23px;color:var(--primary);background:var(--primary-soft);border-color:var(--primary)}
+.direction-current:hover,.direction-switch:hover{border-color:var(--primary)}
+.direction-options{position:absolute;top:calc(100% + 7px);left:0;right:58px;z-index:30;padding:5px;border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:0 12px 28px rgba(0,0,0,.2)}
+.direction-options[hidden]{display:none!important}
+.direction-options button{display:block;width:100%;padding:11px 12px;border:0;border-radius:8px;background:transparent;color:var(--text);text-align:left;font-weight:800;cursor:pointer}
+.direction-options button:hover{background:var(--primary-soft);color:var(--text)}
+html[data-theme="dark"] .direction-options{background:#182832}
+html[data-theme="dark"] .direction-options button{color:#f1f6f8}
+html[data-theme="dark"] .direction-options button:hover{background:#294b43}
+@media(max-width:640px){.direction-control{height:46px}.direction-switch{width:46px;flex-basis:46px}}
