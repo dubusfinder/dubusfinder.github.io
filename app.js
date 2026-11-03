@@ -1048,7 +1048,7 @@ function syncClockPickerFromValue(value) {
   syncClockDisplay();
 }
 function closeClockPicker() {
-  if (clockPopover) clockPopover.hidden = true;
+  /* The mobile analog clock stays visible; closing only resets the trigger state. */
   clockTrigger?.setAttribute("aria-expanded","false");
 }
 function openClockPicker() {
@@ -1105,6 +1105,7 @@ $("clockDone")?.addEventListener("click", () => {
 document.addEventListener("click", event => {
   if (clockPicker && !clockPicker.contains(event.target)) closeClockPicker();
 });
+syncClockPickerFromValue($("timeSearch")?.value || "");
 function updateSearchWindowRange() {
   const output = $("searchWindowRange");
   if (!output) return;
