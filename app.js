@@ -899,7 +899,7 @@ function renderRecentSection() {
       $("busSearch").value = item.bus || "";
       $("stopSearch").value = item.stop || "";
       setDirection(item.direction || "UP");
-      $("timeSearch").value = item.time || "";
+      syncTimePickerFromValue(item.time || "");
       setTimeWindow(item.timeWindow || 0);
 
       runSearch();
@@ -919,6 +919,66 @@ function renderRecentSection() {
 /* =========================================
    TIME CONVERSION
 ========================================= */
+
+/* CUSTOM 12-HOUR TIME PICKER */
+let selectedTimePeriod = "AM";
+function updateTimeSearchValue() {
+  const hour = Number($("timeHour")?.value);
+  const minuteValue = $("timeMinute")?.value;
+  if (!hour || minuteValue === "" || minuteValue == null) { $("timeSearch").value = ""; return; }
+  let hour24 = hour % 12;
+  if (selectedTimePeriod === "PM") hour24 += 12;
+  $("timeSearch").value = String(hour24).padStart(2, "0") + ":" + minuteValue;
+}
+function setTimePeriod(period) {
+  selectedTimePeriod = period === "PM" ? "PM" : "AM";
+  document.querySelectorAll(".period-btn").forEach(button => {
+    const active = button.dataset.period === selectedTimePeriod;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  updateTimeSearchValue();
+}
+function syncTimePickerFromValue(value) {
+  if (!value) {
+    $("timeHour").value = ""; $("timeMinute").value = ""; $("timeSearch").value = "";
+    setTimePeriod("AM"); return;
+  }
+  const match = String(value).match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return;
+  const hour24 = Number(match[1]);
+  $("timeHour").value = String(hour24 % 12 || 12);
+  $("timeMinute").value = match[2];
+  setTimePeriod(hour24 >= 12 ? "PM" : "AM");
+  updateTimeSearchValue();
+}
+for (let hour = 1; hour <= 12; hour++) {
+  const option = document.createElement("option");
+  option.value = String(hour); option.textContent = String(hour).padStart(2, "0");
+  $("timeHour")?.appendChild(option);
+}
+for (let minute = 0; minute < 60; minute++) {
+  const option = document.createElement("option");
+  option.value = String(minute).padStart(2, "0");
+  option.textContent = String(minute).padStart(2, "0");
+  $("timeMinute")?.appendChild(option);
+}
+$("timeHour")?.addEventListener("change", updateTimeSearchValue);
+$("timeMinute")?.addEventListener("change", updateTimeSearchValue);
+document.querySelectorAll(".period-btn").forEach(button => button.addEventListener("click", () => setTimePeriod(button.dataset.period)));
+setTimePeriod("AM");
+function formatClockTime(totalMinutes) {
+  const normalized = ((totalMinutes % 1440) + 1440) % 1440;
+  const hour24 = Math.floor(normalized / 60), minute = normalized % 60;
+  const period = hour24 >= 12 ? "PM" : "AM";
+  return (hour24 % 12 || 12) + ":" + String(minute).padStart(2, "0") + " " + period;
+}
+function formatSearchTimeTitle(time, windowMinutes) {
+  const target = toMinutes(time);
+  if (target === null) return "Bus time results";
+  if (!windowMinutes) return "Buses at " + formatClockTime(target);
+  return "Buses between " + formatClockTime(target - windowMinutes) + " and " + formatClockTime(target + windowMinutes);
+}
 
 function toMinutes(value) {
   if (!value) return null;
@@ -1132,14 +1192,14 @@ function runSearch() {
 
   let title = "Matching buses";
 
-  if (bus && stop) {
+  if (time) {
+    title = formatSearchTimeTitle(time, timeWindow);
+  } else if (bus && stop) {
     title = "Bus and stopage results";
   } else if (bus) {
     title = "Bus name results";
   } else if (stop) {
     title = "Stopage results";
-  } else if (time) {
-    title = timeWindow ? `Buses within ±${timeWindow} minutes` : "Buses at exact time";
   } else if (direction) {
     title = direction === "UP" ? "Up Trip Buses" : "Down Trip Buses";
   }
@@ -1162,7 +1222,7 @@ document.querySelectorAll(".quick-card").forEach(button => {
     const mode = button.dataset.mode;
 
     if (mode === "near") {
-      $("timeSearch")?.focus();
+      $("timeHour")?.focus();
 
       if ($("resultTitle")) {
         $("resultTitle").textContent = "Buses within ±30 minutes";
@@ -1347,7 +1407,7 @@ document.addEventListener("click", event => {
 
 $("searchBtn")?.addEventListener("click", runSearch);
 
-["busSearch", "stopSearch", "timeSearch"].forEach(id => {
+["busSearch", "stopSearch", "timeHour", "timeMinute"].forEach(id => {
   $(id)?.addEventListener("keydown", event => {
     if (event.key === "Enter") {
       event.preventDefault();
