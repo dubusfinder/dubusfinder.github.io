@@ -925,7 +925,11 @@ let selectedTimePeriod = "AM";
 function updateTimeSearchValue() {
   const hour = Number($("timeHour")?.value);
   const minuteValue = $("timeMinute")?.value;
-  if (!hour || minuteValue === "" || minuteValue == null) { $("timeSearch").value = ""; return; }
+  if (!hour || minuteValue === "" || minuteValue == null) {
+    $("timeSearch").value = "";
+    updateSearchWindowRange();
+    return;
+  }
   let hour24 = hour % 12;
   if (selectedTimePeriod === "PM") hour24 += 12;
   $("timeSearch").value = String(hour24).padStart(2, "0") + ":" + minuteValue;
@@ -967,6 +971,20 @@ $("timeHour")?.addEventListener("change", updateTimeSearchValue);
 $("timeMinute")?.addEventListener("change", updateTimeSearchValue);
 document.querySelectorAll(".period-btn").forEach(button => button.addEventListener("click", () => setTimePeriod(button.dataset.period)));
 setTimePeriod("AM");
+function updateSearchWindowRange() {
+  const output = $("searchWindowRange");
+  if (!output) return;
+  const target = toMinutes($("timeSearch")?.value || "");
+  const selectedWindow = Number($("timeWindowOptions")?.querySelector('[aria-pressed="true"]')?.dataset.window || 0);
+  if (target === null || !selectedWindow) {
+    output.textContent = "";
+    output.hidden = true;
+    return;
+  }
+  output.textContent = formatClockTime(target - selectedWindow) + " - " + formatClockTime(target + selectedWindow);
+  output.hidden = false;
+}
+
 function formatClockTime(totalMinutes) {
   const normalized = ((totalMinutes % 1440) + 1440) % 1440;
   const hour24 = Math.floor(normalized / 60), minute = normalized % 60;
