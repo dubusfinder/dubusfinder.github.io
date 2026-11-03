@@ -3,6 +3,7 @@
    DU BUS FINDER
    Modern Minimal UI
    Light + Dark Theme
+   Responsive: Desktop, Tablet & Mobile
 ========================================= */
 
 /* ---------- THEME ---------- */
@@ -68,11 +69,14 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--text);
-  font-family: Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  transition: background var(--transition),color var(--transition);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  transition: background var(--transition), color var(--transition);
 }
 
-button,input,select {
+button,
+input,
+select {
   font: inherit;
 }
 
@@ -100,13 +104,13 @@ select:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 25px;
-  padding: 0 max(6vw,22px);
+  padding: 0 max(6vw, 22px);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
   z-index: 1000;
-  transition: background var(--transition),border-color var(--transition);
+  transition: background var(--transition), border-color var(--transition);
 }
 
 .brand {
@@ -223,10 +227,10 @@ select:focus-visible {
 .hero {
   position: relative;
   overflow: hidden;
-  padding: 66px max(8vw,24px) 28px;
+  padding: 66px 24px 35px;
   background:
-    radial-gradient(circle at 90% 10%,rgba(121,213,181,.16),transparent 30%),
-    linear-gradient(120deg,#102a43,#123c4c);
+    radial-gradient(circle at 90% 10%, rgba(121,213,181,.16), transparent 30%),
+    linear-gradient(120deg, #102a43, #123c4c);
   color: white;
 }
 
@@ -251,7 +255,7 @@ select:focus-visible {
   max-width: 1180px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 1fr minmax(380px,530px);
+  grid-template-columns: 1fr minmax(380px, 530px);
   align-items: center;
   gap: 65px;
 }
@@ -280,7 +284,7 @@ select:focus-visible {
 
 .hero h1 {
   margin: 22px 0 18px;
-  font-size: clamp(39px,5.2vw,65px);
+  font-size: clamp(39px, 5.2vw, 65px);
   line-height: 1.04;
   letter-spacing: -.055em;
 }
@@ -402,7 +406,7 @@ select:focus-visible {
   background: #ffffff;
   color: #172b3a;
   font-size: 13px;
-  transition: border-color var(--transition),box-shadow var(--transition);
+  transition: border-color var(--transition), box-shadow var(--transition);
 }
 
 .search-panel .input-wrap input {
@@ -448,7 +452,7 @@ select:focus-visible {
   font-size: 13px;
   font-weight: 850;
   cursor: pointer;
-  transition: background var(--transition),transform var(--transition),box-shadow var(--transition);
+  transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
 }
 
 .primary:hover {
@@ -528,7 +532,7 @@ select:focus-visible {
 
 .quick-grid {
   display: grid;
-  grid-template-columns: repeat(4,minmax(0,1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 13px;
 }
 
@@ -545,7 +549,7 @@ select:focus-visible {
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
-  transition: transform var(--transition),border-color var(--transition),box-shadow var(--transition),background var(--transition);
+  transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition), background var(--transition);
 }
 
 .quick-card:hover {
@@ -590,7 +594,7 @@ select:focus-visible {
   right: 17px;
   color: var(--muted);
   font-size: 15px;
-  transition: color var(--transition),transform var(--transition);
+  transition: color var(--transition), transform var(--transition);
 }
 
 .quick-card:hover .card-arrow {
@@ -827,7 +831,7 @@ select:focus-visible {
 /* ---------- FOOTER ---------- */
 
 .site-footer {
-  padding: 28px max(6vw,22px) 22px;
+  padding: 28px max(6vw, 22px) 22px;
   background: var(--surface);
   border-top: 1px solid var(--border);
 }
@@ -928,9 +932,9 @@ select:focus-visible {
 
 /* ---------- TABLET ---------- */
 
-@media (max-width:950px) {
+@media (max-width: 950px) {
   .hero-inner {
-    grid-template-columns: 1fr minmax(340px,470px);
+    grid-template-columns: 1fr minmax(340px, 470px);
     gap: 30px;
   }
 
@@ -939,13 +943,22 @@ select:focus-visible {
   }
 
   .quick-grid {
-    grid-template-columns: repeat(2,minmax(0,1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .topbar {
+    padding-left: 22px;
+    padding-right: 22px;
+  }
+
+  .main-nav {
+    gap: 18px;
   }
 }
 
 /* ---------- MOBILE ---------- */
 
-@media (max-width:760px) {
+@media (max-width: 760px) {
   .topbar {
     min-height: 64px;
     padding: 0 14px;
@@ -1002,7 +1015,7 @@ select:focus-visible {
 
   .hero h1 {
     margin: 13px 0 10px;
-    font-size: clamp(34px,9vw,48px);
+    font-size: clamp(34px, 9vw, 48px);
   }
 
   .hero-description {
@@ -1010,22 +1023,30 @@ select:focus-visible {
     line-height: 1.6;
   }
 
-  /* Keep all three feature labels on one line */
   .hero-points {
     display: flex;
     flex-wrap: nowrap;
     justify-content: space-between;
     align-items: center;
-    gap: 5px;
-    margin-top: 14px;
-    width: 100%;
+    gap: 7px;
+    margin-top: 17px;
+    white-space: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .hero-points::-webkit-scrollbar {
+    display: none;
   }
 
   .hero-points span {
+    flex: 0 0 auto;
+    font-size: clamp(7px, 2.3vw, 10px);
     white-space: nowrap;
-    font-size: clamp(7px,2.3vw,10px);
     letter-spacing: -.02em;
   }
+
+  /* Compact search panel */
 
   .search-panel {
     padding: 15px;
@@ -1094,8 +1115,11 @@ select:focus-visible {
 
   .notice {
     margin-top: 13px;
+    line-height: 1.6;
     font-size: 9px;
   }
+
+  /* Content spacing */
 
   .content {
     padding: 28px 16px 45px;
@@ -1118,6 +1142,7 @@ select:focus-visible {
   }
 
   .quick-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 9px;
   }
 
@@ -1158,6 +1183,8 @@ select:focus-visible {
     padding: 7px 10px;
     font-size: 10px;
   }
+
+  /* Results */
 
   .results-head {
     align-items: flex-start;
@@ -1225,7 +1252,7 @@ select:focus-visible {
 
 /* ---------- SMALL MOBILE ---------- */
 
-@media (max-width:430px) {
+@media (max-width: 430px) {
   .hero {
     padding: 25px 13px 16px;
   }
@@ -1235,7 +1262,7 @@ select:focus-visible {
   }
 
   .hero h1 {
-    font-size: clamp(32px,8.8vw,40px);
+    font-size: clamp(32px, 8.8vw, 40px);
   }
 
   .hero-points {
@@ -1243,7 +1270,7 @@ select:focus-visible {
   }
 
   .hero-points span {
-    font-size: clamp(7px,2.15vw,9px);
+    font-size: clamp(7px, 2.15vw, 9px);
   }
 
   .search-panel {
@@ -1262,10 +1289,6 @@ select:focus-visible {
   .quick-card {
     min-height: 105px;
     padding: 10px;
-  }
-
-  .quick-card b {
-    font-size: 10px;
   }
 
   .quick-card small {
@@ -1293,6 +1316,7 @@ select:focus-visible {
   }
 
   .result-row {
+    padding: 13px 2px;
     gap: 7px;
   }
 
@@ -1319,7 +1343,7 @@ select:focus-visible {
 
 /* ---------- VERY SMALL MOBILE ---------- */
 
-@media (max-width:350px) {
+@media (max-width: 350px) {
   .topbar {
     padding: 0 10px;
   }
@@ -1357,7 +1381,7 @@ select:focus-visible {
 
 /* ---------- REDUCED MOTION ---------- */
 
-@media (prefers-reduced-motion:reduce) {
+@media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
