@@ -489,3 +489,54 @@ html[data-theme="dark"] .field-group input[type="time"]{color-scheme:dark}
 @media(max-width:390px){
   .field-group input[type="time"]{padding:0 9px}
 }
+
+
+/* === Time field responsive sizing (keep native browser picker) === */
+.filters{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  align-items:end;
+  min-width:0;
+}
+.filters > .field-group{
+  width:100%;
+  min-width:0;
+}
+.field-group input[type="time"]{
+  display:block;
+  box-sizing:border-box;
+  inline-size:100%;
+  min-inline-size:0;
+  max-inline-size:100%;
+  margin:0;
+  padding-inline:12px;
+  font-family:inherit;
+  font-size:16px;
+  line-height:normal;
+  appearance:auto;
+  -webkit-appearance:auto;
+  touch-action:manipulation;
+}
+@media(max-width:640px){
+  .filters{
+    grid-template-columns:minmax(0,1fr);
+    gap:14px;
+  }
+  .filters > .field-group,
+  .field-group input[type="time"]{
+    width:100%;
+    min-width:0;
+    max-width:100%;
+  }
+  .field-group input[type="time"]{
+    height:48px;
+    padding-inline:12px;
+  }
+}
+@media(max-width:390px){
+  .field-group input[type="time"]{
+    height:46px;
+    padding-inline:10px;
+    font-size:16px;
+  }
+}
