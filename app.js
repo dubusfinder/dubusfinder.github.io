@@ -1139,14 +1139,14 @@ document.querySelectorAll(".quick-card").forEach(button => {
     } else if (mode === "direction") {
       $("direction")?.focus();
     } else if (mode === "where") {
-      showEmpty(
-        "Scheduled bus position",
-        "This feature needs reliable stop-wise times. It will show an estimate, never live GPS."
-      );
-
-      $("results-section")?.scrollIntoView({
-        behavior: "smooth"
+      $("search-section")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
       });
+
+      window.setTimeout(() => {
+        $("busSearch")?.focus();
+      }, 350);
       return;
     } else {
       $("stopSearch")?.focus();
