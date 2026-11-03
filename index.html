@@ -155,15 +155,13 @@
                       <select id="timeMinute" aria-label="Minute" title="Minute"></select>
                     </div>
                     <button type="button" class="period-toggle" id="periodToggle" aria-label="Switch AM or PM">AM</button>
+                    <span class="search-window-range" id="searchWindowRange" aria-live="polite" hidden></span>
                   </div>
                   <input type="hidden" id="timeSearch" value="00:00">
                 </div>
                 <div class="search-window-panel">
                   <div class="search-window-topline">
-                    <div class="search-window-heading-row">
-                      <span class="search-window-heading">Search Window</span>
-                      <span class="search-window-range" id="searchWindowRange" aria-live="polite" hidden></span>
-                    </div>
+                    <span class="search-window-heading">Search Window</span>
                     <div class="time-window-options" id="timeWindowOptions" role="group" aria-label="Search window">
                       <button type="button" class="time-window-btn" data-window="15" aria-pressed="false">±15</button>
                       <button type="button" class="time-window-btn" data-window="30" aria-pressed="false">±30</button>
