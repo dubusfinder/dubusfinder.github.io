@@ -62,7 +62,7 @@
         aria-label="Toggle dark mode"
         title="Change appearance"
       >
-        <span class="theme-icon">◐</span>
+        <span class="theme-icon">☾</span>
       </button>
 
       <button id="installBtn" class="install-btn" hidden>
@@ -223,6 +223,7 @@
           <div>
             <div class="eyebrow">QUICK ACCESS</div>
             <h2>Explore bus services</h2>
+
             <p class="section-description">
               Find useful bus information with one click.
             </p>
@@ -235,44 +236,66 @@
 
           <button class="quick-card" data-mode="stop">
             <span class="quick-icon">⌕</span>
+
             <span class="quick-card-content">
               <b>Buses from a stopage</b>
               <small>Find buses and departure times</small>
             </span>
+
             <span class="card-arrow">→</span>
           </button>
 
 
           <button class="quick-card" data-mode="near">
             <span class="quick-icon">◷</span>
+
             <span class="quick-card-content">
               <b>Within 30 minutes</b>
               <small>See buses around your chosen time</small>
             </span>
+
             <span class="card-arrow">→</span>
           </button>
 
 
           <button class="quick-card" data-mode="where">
             <span class="quick-icon">⌖</span>
+
             <span class="quick-card-content">
               <b>Where is my bus?</b>
               <small>Estimate its scheduled position</small>
             </span>
+
             <span class="card-arrow">→</span>
           </button>
 
 
           <button class="quick-card" data-mode="direction">
             <span class="quick-icon">⇅</span>
+
             <span class="quick-card-content">
               <b>Up / Down trips</b>
               <small>Explore trips by direction</small>
             </span>
+
             <span class="card-arrow">→</span>
           </button>
 
         </div>
+
+
+        <!-- FAVOURITE BUSES -->
+        <div
+          id="favoriteSection"
+          class="personal-section"
+        ></div>
+
+
+        <!-- RECENT SEARCHES -->
+        <div
+          id="recentSection"
+          class="personal-section"
+        ></div>
 
       </section>
 
@@ -284,7 +307,9 @@
 
           <div>
             <div class="eyebrow">BUS INFORMATION</div>
+
             <h2 id="resultTitle">Bus results</h2>
+
             <p class="section-description">
               Your matching bus schedules will appear here.
             </p>
@@ -313,12 +338,13 @@
       </section>
 
 
-      <!-- PROJECT INFORMATION -->
+      <!-- ABOUT PROJECT -->
       <section class="about-section">
 
         <div class="about-icon">🎓</div>
 
         <div class="about-content">
+
           <div class="eyebrow">ABOUT THE PROJECT</div>
 
           <h2>Making university travel easier.</h2>
@@ -328,6 +354,7 @@
             project designed to make Dhaka University bus
             schedules easier to explore.
           </p>
+
         </div>
 
       </section>
@@ -354,11 +381,13 @@
     </div>
 
     <div class="footer-bottom">
+
       <span>Made for Dhaka University students.</span>
 
       <span>
         Always verify schedule changes with the relevant bus group.
       </span>
+
     </div>
 
   </footer>
