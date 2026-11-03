@@ -1,7 +1,7 @@
 
 /* DU BUS FINDER - Optimized Service Worker */
 
-const CACHE = "du-bus-finder-v4";
+const CACHE = "du-bus-finder-v5";
 
 const ASSETS = [
   "./",
