@@ -213,3 +213,33 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}
 }
+
+/* === Contrast and header install-button refinements === */
+.header-actions{flex-shrink:0}
+.header-actions .install-btn{min-height:40px;padding:9px 13px;border-radius:11px;font-size:12px;white-space:nowrap}
+.header-actions .install-btn[hidden]{display:none!important}
+.main-nav a{color:var(--text)}
+.main-nav a:hover{color:var(--primary)}
+.brand-text small{color:var(--muted)}
+.section-label{color:var(--primary)}
+.field-group label{color:var(--text)}
+.field-group input,.field-group select{color:var(--text);background:var(--surface-soft)}
+.field-group input::placeholder{color:var(--muted);opacity:1}
+.quick-card-content strong,.personal-section-heading h2,.personal-section-heading h3,
+.results-header h2,.result-row strong,.empty-state h3,.results.empty h3{color:var(--text)}
+.quick-card-content small,.personal-section p,.result-row small,.empty-state p,.results.empty p{color:var(--muted)}
+.status{color:var(--text);background:var(--surface-soft)}
+.personal-chip,.clear-recent{color:var(--text);background:var(--surface)}
+.suggestion-panel{color:var(--text);background:var(--surface);border-color:var(--border)}
+.suggestion-panel button{color:var(--text)!important}
+.suggestion-panel button:hover{background:var(--primary-soft)!important;color:var(--text)!important}
+.result-row{background:var(--surface)}
+.result-row:nth-child(even){background:var(--surface-soft)}
+.time{background:var(--primary-soft);color:var(--primary)}
+@media(max-width:640px){
+ .header-actions{gap:6px}
+ .header-actions .install-btn{min-height:36px;padding:8px 10px;font-size:11px}
+}
+@media(max-width:390px){
+ .header-actions .install-btn{padding:7px 8px;font-size:10px}
+}
