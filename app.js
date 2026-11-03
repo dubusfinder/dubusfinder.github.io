@@ -831,13 +831,14 @@ function getRecentSearches() {
   return readLocalArray(RECENT_KEY);
 }
 
-function saveRecentSearch(bus, stop, direction, time) {
+function saveRecentSearch(bus, stop, direction, time, timeWindow) {
   const item = {
     bus,
     stop,
     direction,
     time,
-    label: [bus, stop, direction, time]
+    timeWindow: timeWindow || 0,
+    label: [bus, stop, direction, time, time ? (timeWindow ? "±" + timeWindow + " min" : "Exact time") : ""]
       .filter(Boolean)
       .join(" · ")
   };
@@ -899,6 +900,7 @@ function renderRecentSection() {
       $("stopSearch").value = item.stop || "";
       setDirection(item.direction || "UP");
       $("timeSearch").value = item.time || "";
+      setTimeWindow(item.timeWindow || 0);
 
       runSearch();
 
@@ -1029,6 +1031,31 @@ function renderRows(rows, title) {
 }
 
 /* =========================================
+   TIME WINDOW SELECTOR
+========================================= */
+
+function setTimeWindow(value) {
+  const selected = Number(value) || 0;
+  const container = $("timeWindowOptions");
+  if (!container) return;
+
+  container.querySelectorAll(".time-window-btn").forEach(button => {
+    const active = Number(button.dataset.window) === selected && selected !== 0;
+    button.setAttribute("aria-pressed", String(active));
+    button.classList.toggle("active", active);
+  });
+}
+
+$("timeWindowOptions")?.addEventListener("click", event => {
+  const button = event.target.closest(".time-window-btn");
+  if (!button) return;
+
+  const current = Number($("timeWindowOptions").querySelector('[aria-pressed="true"]')?.dataset.window || 0);
+  const next = Number(button.dataset.window);
+  setTimeWindow(current === next ? 0 : next);
+});
+
+/* =========================================
    MAIN SEARCH
 ========================================= */
 
@@ -1048,6 +1075,7 @@ function runSearch() {
   const stop = $("stopSearch")?.value.trim() || "";
   const direction = $("direction")?.value || "";
   const time = $("timeSearch")?.value || "";
+  const timeWindow = Number($("timeWindowOptions")?.querySelector('[aria-pressed="true"]')?.dataset.window || 0);
 
   // Direction is only a filter; it cannot be used as the sole search query.
   if (!bus && !stop && !time) {
@@ -1090,7 +1118,7 @@ function runSearch() {
       const rowTime = toMinutes(row.trip_time);
 
       return rowTime !== null &&
-        timeDifference(rowTime, target) <= 30;
+        timeDifference(rowTime, target) <= timeWindow;
     });
 
     rows.sort((a, b) => {
@@ -1108,12 +1136,12 @@ function runSearch() {
   } else if (stop) {
     title = "Stopage results";
   } else if (time) {
-    title = "Buses within ±30 minutes";
+    title = timeWindow ? `Buses within ±${timeWindow} minutes` : "Buses at exact time";
   } else if (direction) {
     title = direction === "UP" ? "Up Trip Buses" : "Down Trip Buses";
   }
 
-  saveRecentSearch(bus, stop, direction, time);
+  saveRecentSearch(bus, stop, direction, time, timeWindow);
   renderRows(rows, title);
 
   $("results-section")?.scrollIntoView({
