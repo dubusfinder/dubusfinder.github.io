@@ -897,7 +897,7 @@ function renderRecentSection() {
 
       $("busSearch").value = item.bus || "";
       $("stopSearch").value = item.stop || "";
-      $("direction").value = item.direction || "";
+      setDirection(item.direction || "UP");
       $("timeSearch").value = item.time || "";
 
       runSearch();
@@ -1328,6 +1328,8 @@ $("searchBtn")?.addEventListener("click", runSearch);
 /* =========================================
    INITIALIZATION
 ========================================= */
+
+setDirection($("direction")?.value || "UP");
 
 setupSuggestions("busSearch", getBusNames);
 setupSuggestions("stopSearch", getStopNames);
