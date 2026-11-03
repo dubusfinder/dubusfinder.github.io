@@ -460,3 +460,37 @@ html[data-theme="dark"] .suggestion-panel button:hover{background:#2b4a43!import
 .direction-options{background:var(--surface)!important;border-color:var(--border)!important}
 .direction-options button{color:var(--text)!important}
 .direction-options button:hover{background:var(--primary-soft)!important}
+
+
+/* Easy, responsive digital time selector */
+.time-picker{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) minmax(0,1.15fr);
+  align-items:center;
+  gap:8px;
+  width:100%;
+  min-height:48px;
+}
+.time-picker select{
+  width:100%;
+  min-width:0;
+  height:48px;
+  padding:0 10px;
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  background:var(--surface-soft);
+  color:var(--text);
+  font-size:14px;
+  font-weight:700;
+  cursor:pointer;
+}
+.time-picker select:focus{
+  outline:none;
+  border-color:var(--primary);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 15%,transparent);
+}
+.time-separator{color:var(--muted);font-weight:900;font-size:18px}
+@media(max-width:640px){
+  .time-picker{gap:6px;min-height:46px}
+  .time-picker select{height:46px;padding:0 7px;font-size:13px}
+}
