@@ -1255,7 +1255,7 @@ document.querySelectorAll(".quick-card").forEach(button => {
     const mode = button.dataset.mode;
 
     if (mode === "near") {
-      $("timeSearch")?.focus();
+      $("clockTrigger")?.focus();
 
       if ($("resultTitle")) {
         $("resultTitle").textContent = "Buses within ±30 minutes";
