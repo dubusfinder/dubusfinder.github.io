@@ -1,5 +1,7 @@
 
-const CACHE = "du-bus-finder-v3";
+/* DU BUS FINDER - Optimized Service Worker */
+
+const CACHE = "du-bus-finder-v4";
 
 const ASSETS = [
   "./",
@@ -11,13 +13,25 @@ const ASSETS = [
   "./icon-512.png"
 ];
 
+/* ----------------------------------
+   INSTALL
+---------------------------------- */
+
 self.addEventListener("install", event => {
   event.waitUntil(
     caches.open(CACHE)
       .then(cache => cache.addAll(ASSETS))
       .then(() => self.skipWaiting())
+      .catch(error => {
+        console.error("Cache installation failed:", error);
+        throw error;
+      })
   );
 });
+
+/* ----------------------------------
+   ACTIVATE
+---------------------------------- */
 
 self.addEventListener("activate", event => {
   event.waitUntil(
@@ -36,6 +50,10 @@ self.addEventListener("activate", event => {
   );
 });
 
+/* ----------------------------------
+   FETCH STRATEGY
+---------------------------------- */
+
 self.addEventListener("fetch", event => {
   const request = event.request;
 
@@ -43,6 +61,7 @@ self.addEventListener("fetch", event => {
 
   const url = new URL(request.url);
 
+  // Ignore external requests and API requests
   if (url.origin !== self.location.origin) return;
 
   const isAppFile =
@@ -60,17 +79,42 @@ self.addEventListener("fetch", event => {
             const copy = response.clone();
 
             caches.open(CACHE)
-              .then(cache => cache.put(request, copy));
+              .then(cache => cache.put(request, copy))
+              .catch(error => {
+                console.warn("Cache update failed:", error);
+              });
           }
 
           return response;
         })
-        .catch(() => caches.match(request))
+        .catch(async () => {
+          const cached = await caches.match(request);
+
+          if (cached) return cached;
+
+          if (request.mode === "navigate") {
+            const offlinePage = await caches.match("./index.html");
+
+            if (offlinePage) return offlinePage;
+          }
+
+          return new Response(
+            "You are offline. Please check your internet connection.",
+            {
+              status: 503,
+              statusText: "Service Unavailable",
+              headers: {
+                "Content-Type": "text/plain; charset=utf-8"
+              }
+            }
+          );
+        })
     );
 
     return;
   }
 
+  // Cache first for other local assets
   event.respondWith(
     caches.match(request)
       .then(cached => cached || fetch(request))
