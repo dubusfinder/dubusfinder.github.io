@@ -1352,3 +1352,53 @@ html[data-theme="dark"] .custom-time-picker select option{background:#19272d;col
     font-size:9px!important;
   }
 }
+
+
+/* Mobile correction: keep the complete digital time control inside its column */
+@media(max-width:640px){
+  .time-picker-layout{
+    grid-template-columns:minmax(116px,116px) minmax(0,1fr)!important;
+    column-gap:10px!important;
+    width:100%!important;
+    min-width:0!important;
+  }
+  .time-picker-controls-row{
+    min-width:0!important;
+  }
+  .time-entry-row{
+    width:116px!important;
+    min-width:116px!important;
+    max-width:116px!important;
+    gap:0!important;
+  }
+  .time-entry-row .custom-time-picker{
+    box-sizing:border-box!important;
+    flex:0 0 116px!important;
+    width:116px!important;
+    min-width:116px!important;
+    max-width:116px!important;
+    padding:4px!important;
+    gap:2px!important;
+    overflow:hidden!important;
+  }
+}
+@media(max-width:390px){
+  .time-picker-layout{
+    grid-template-columns:minmax(112px,112px) minmax(0,1fr)!important;
+    column-gap:8px!important;
+  }
+  .time-entry-row{
+    width:112px!important;
+    min-width:112px!important;
+    max-width:112px!important;
+  }
+  .time-entry-row .custom-time-picker{
+    box-sizing:border-box!important;
+    flex-basis:112px!important;
+    width:112px!important;
+    min-width:112px!important;
+    max-width:112px!important;
+    padding:3px!important;
+    gap:1px!important;
+  }
+}
