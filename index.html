@@ -145,15 +145,19 @@
 
 
             <div class="field-group time-field-group">
-              <div class="time-field-heading">
-                <label for="timeSearch">Time (Optional)</label>
-                <span class="search-window-heading">Search Window</span>
-              </div>
-              <input type="time" id="timeSearch" aria-label="Select time">
-              <div class="time-window-options" id="timeWindowOptions" role="group" aria-label="Search window">
-                <button type="button" class="time-window-btn" data-window="15" aria-pressed="false">±15 min</button>
-                <button type="button" class="time-window-btn" data-window="30" aria-pressed="false">±30 min</button>
-                <button type="button" class="time-window-btn" data-window="60" aria-pressed="false">±60 min</button>
+              <div class="time-picker-layout">
+                <div class="exact-time-panel">
+                  <label for="timeSearch">Exact Time</label>
+                  <input type="time" id="timeSearch" aria-label="Select exact time">
+                </div>
+                <div class="search-window-panel">
+                  <span class="search-window-heading">Search Window</span>
+                  <div class="time-window-options" id="timeWindowOptions" role="group" aria-label="Search window">
+                    <button type="button" class="time-window-btn" data-window="15" aria-pressed="false">±15</button>
+                    <button type="button" class="time-window-btn" data-window="30" aria-pressed="false">±30</button>
+                    <button type="button" class="time-window-btn" data-window="60" aria-pressed="false">±60</button>
+                  </div>
+                </div>
               </div>
             </div>
 
