@@ -147,9 +147,9 @@
             <div class="field-group time-field-group">
               <div class="time-picker-layout">
                 <div class="time-picker-heading-row">
-                  <label for="timeHour">Exact Time</label>
+                  <label for="timeHour">Time</label>
                   <div class="search-window-heading-group">
-                    <span class="search-window-heading">Search Window</span>
+                    <span class="search-window-heading">Search Range</span>
                     <span class="search-window-range" id="searchWindowRange" aria-live="polite" hidden></span>
                   </div>
                 </div>
@@ -165,6 +165,7 @@
                   <div class="time-window-options" id="timeWindowOptions" role="group" aria-label="Search window">
                     <button type="button" class="time-window-btn" data-window="15" aria-pressed="false">±15</button>
                     <button type="button" class="time-window-btn" data-window="30" aria-pressed="false">±30</button>
+                    <button type="button" class="time-window-btn" data-window="60" aria-pressed="false">±60</button>
                   </div>
                 </div>
                 <input type="hidden" id="timeSearch" value="00:00">
