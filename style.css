@@ -1905,3 +1905,109 @@ html[data-theme="dark"] .custom-time-picker select option{background:#19272d;col
   .search-panel{padding:14px!important}
   .result-row{padding:12px!important}
 }
+
+
+/* FINAL MOBILE VIEWPORT CONTAINMENT
+   Keep the document canvas exactly within the device viewport.
+   Reflow oversized descendants instead of allowing them to widen the page. */
+html{
+  width:100%;
+  max-width:100%;
+  overflow-x:clip;
+}
+body{
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  overflow-x:clip;
+}
+@supports not (overflow:clip){
+  html,body{overflow-x:hidden}
+}
+*,*::before,*::after{
+  box-sizing:border-box;
+}
+main,
+.site-header,
+.site-footer,
+.hero,
+.search-section,
+.quick-search-section,
+.personal-section,
+.results-section{
+  min-width:0;
+  max-width:100%;
+}
+main{
+  width:100%;
+}
+@media(max-width:640px){
+  .search-section,
+  .quick-search-section,
+  .personal-section,
+  .results-section{
+    width:calc(100% - 24px)!important;
+    margin-left:auto!important;
+    margin-right:auto!important;
+  }
+  .header-inner,
+  .footer-inner{
+    min-width:0!important;
+    max-width:calc(100% - 24px)!important;
+  }
+  .search-panel,
+  .search-fields,
+  .filters,
+  .field-group,
+  .time-picker-layout,
+  .time-control-column,
+  .range-control-column,
+  .quick-grid,
+  .quick-card,
+  .results-container,
+  .results,
+  .result-row,
+  .result-actions,
+  .personal-chip-list{
+    min-width:0!important;
+    max-width:100%!important;
+  }
+  .search-fields,
+  .filters,
+  .quick-grid{
+    width:100%!important;
+  }
+  .field-group input,
+  .field-group select,
+  .direction-picker,
+  .direction-control,
+  .custom-time-picker,
+  .time-window-options{
+    min-width:0!important;
+    max-width:100%!important;
+  }
+  .result-row,
+  .results-header,
+  .personal-section-heading{
+    flex-wrap:wrap!important;
+  }
+  .result-actions{
+    flex-shrink:1!important;
+  }
+  .personal-chip{
+    max-width:100%;
+    overflow-wrap:anywhere;
+  }
+}
+@media(max-width:360px){
+  .search-section,
+  .quick-search-section,
+  .personal-section,
+  .results-section{
+    width:calc(100% - 20px)!important;
+  }
+  .header-inner,
+  .footer-inner{
+    max-width:calc(100% - 20px)!important;
+  }
+}
