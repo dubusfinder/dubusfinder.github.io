@@ -899,7 +899,6 @@ function renderRecentSection() {
       $("stopSearch").value = item.stop || "";
       $("direction").value = item.direction || "";
       $("timeSearch").value = item.time || "";
-      syncTimePickerFromValue(item.time || "");
 
       runSearch();
 
@@ -1115,138 +1114,6 @@ function runSearch() {
 }
 
 /* =========================================
-   RESPONSIVE ANALOG CLOCK TIME PICKER
-========================================= */
-
-const timeSearchInput = $("timeSearch");
-const clockPicker = $("clockPicker");
-const clockTrigger = $("clockTrigger");
-const clockTriggerText = $("clockTriggerText");
-const clockPopover = $("clockPopover");
-const clockFace = $("clockFace");
-const clockStepLabel = $("clockStepLabel");
-const clockHourDisplay = $("clockHourDisplay");
-const clockMinuteDisplay = $("clockMinuteDisplay");
-const clockPeriodButtons = clockPopover?.querySelectorAll("[data-period]");
-
-let selectedClockHour = "";
-let selectedClockMinute = "";
-let selectedClockPeriod = "AM";
-let clockStep = "hour";
-let savedClockValue = "";
-
-function formatClockTime() {
-  if (!selectedClockHour || selectedClockMinute === "") return "";
-  return selectedClockHour + ":" + selectedClockMinute + " " + selectedClockPeriod;
-}
-
-function renderClockFace() {
-  if (!clockFace) return;
-  const values = clockStep === "hour"
-    ? Array.from({length:12}, (_,i) => String(i + 1))
-    : Array.from({length:12}, (_,i) => String(i * 5).padStart(2,"0"));
-  clockFace.innerHTML = values.map((value,index) => {
-    const angle = index * 30;
-    const active = clockStep === "hour"
-      ? Number(selectedClockHour) === Number(value)
-      : Number(selectedClockMinute) === Number(value);
-    return `<button type="button" class="clock-number ${active ? "selected" : ""}" data-clock-value="${value}" style="--clock-angle:${angle}deg">${value}</button>`;
-  }).join("");
-  clockFace.querySelectorAll("[data-clock-value]").forEach(button => {
-    button.addEventListener("click", () => {
-      if (clockStep === "hour") {
-        selectedClockHour = button.dataset.clockValue.padStart(2,"0");
-        clockStep = "minute";
-      } else {
-        selectedClockMinute = button.dataset.clockValue;
-      }
-      syncClockDisplay();
-    });
-  });
-}
-
-function syncClockDisplay() {
-  if (clockHourDisplay) clockHourDisplay.textContent = selectedClockHour || "--";
-  if (clockMinuteDisplay) clockMinuteDisplay.textContent = selectedClockMinute === "" ? "--" : selectedClockMinute;
-  clockHourDisplay?.classList.toggle("active", clockStep === "hour");
-  clockMinuteDisplay?.classList.toggle("active", clockStep === "minute");
-  if (clockStepLabel) clockStepLabel.textContent = clockStep === "hour" ? "Select hour" : "Select minute";
-  clockPeriodButtons?.forEach(button => button.classList.toggle("active", button.dataset.period === selectedClockPeriod));
-  renderClockFace();
-}
-
-function syncTimePickerFromValue(value) {
-  if (!value) {
-    selectedClockHour = "";
-    selectedClockMinute = "";
-    selectedClockPeriod = "AM";
-    if (timeSearchInput) timeSearchInput.value = "";
-    if (clockTriggerText) clockTriggerText.textContent = "Select time";
-    return;
-  }
-  const match = String(value).match(/^(\d{2}):(\d{2})$/);
-  if (!match) return;
-  const hour24 = Number(match[1]);
-  selectedClockHour = String(hour24 % 12 || 12).padStart(2,"0");
-  selectedClockMinute = match[2];
-  selectedClockPeriod = hour24 >= 12 ? "PM" : "AM";
-  if (timeSearchInput) timeSearchInput.value = value;
-  if (clockTriggerText) clockTriggerText.textContent = formatClockTime();
-}
-
-function closeClockPicker() {
-  if (clockPopover) clockPopover.hidden = true;
-  clockTrigger?.setAttribute("aria-expanded","false");
-}
-
-function openClockPicker() {
-  savedClockValue = timeSearchInput?.value || "";
-  syncTimePickerFromValue(savedClockValue);
-  clockStep = selectedClockHour ? "minute" : "hour";
-  if (clockPopover) clockPopover.hidden = false;
-  clockTrigger?.setAttribute("aria-expanded","true");
-  syncClockDisplay();
-}
-
-clockTrigger?.addEventListener("click", () => {
-  if (clockPopover?.hidden) openClockPicker();
-  else closeClockPicker();
-});
-clockHourDisplay?.addEventListener("click", () => { clockStep = "hour"; syncClockDisplay(); });
-clockMinuteDisplay?.addEventListener("click", () => { clockStep = "minute"; syncClockDisplay(); });
-clockPeriodButtons?.forEach(button => button.addEventListener("click", () => {
-  selectedClockPeriod = button.dataset.period;
-  syncClockDisplay();
-}));
-$("clockClear")?.addEventListener("click", () => {
-  selectedClockHour = "";
-  selectedClockMinute = "";
-  selectedClockPeriod = "AM";
-  clockStep = "hour";
-  syncClockDisplay();
-});
-$("clockCancel")?.addEventListener("click", () => {
-  syncTimePickerFromValue(savedClockValue);
-  closeClockPicker();
-});
-$("clockDone")?.addEventListener("click", () => {
-  if (!selectedClockHour || selectedClockMinute === "") {
-    clockStep = selectedClockHour ? "minute" : "hour";
-    syncClockDisplay();
-    return;
-  }
-  let hour24 = Number(selectedClockHour) % 12;
-  if (selectedClockPeriod === "PM") hour24 += 12;
-  const value = String(hour24).padStart(2,"0") + ":" + selectedClockMinute;
-  if (timeSearchInput) timeSearchInput.value = value;
-  if (clockTriggerText) clockTriggerText.textContent = formatClockTime();
-  closeClockPicker();
-});
-document.addEventListener("click", event => {
-  if (clockPicker && !clockPicker.contains(event.target)) closeClockPicker();
-});
-
-/* =========================================
    QUICK SEARCH CARDS
 ========================================= */
 
@@ -1255,7 +1122,7 @@ document.querySelectorAll(".quick-card").forEach(button => {
     const mode = button.dataset.mode;
 
     if (mode === "near") {
-      $("clockTrigger")?.focus();
+      $("timeSearch")?.focus();
 
       if ($("resultTitle")) {
         $("resultTitle").textContent = "Buses within ±30 minutes";
