@@ -1,10 +1,26 @@
+
 {
   "name": "DU BUS FINDER",
   "short_name": "DU Bus",
   "description": "Dhaka University bus schedule finder",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f5f8fa",
   "theme_color": "#102a43",
-  "icons": []
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
 }
