@@ -1,56 +1,136 @@
 
-/* DU BUS FINDER - Smart Search System with Online + Offline Support */
+/* =========================================
+   DU BUS FINDER
+   Smart Search + Offline + Theme + Favorites
+========================================= */
 
 "use strict";
+
+/* ---------- CONFIGURATION ---------- */
 
 const API_URL = "https://script.google.com/macros/s/AKfycbzxpN2M7gA9tz2ZIz4V9zxU18MDxH1A9DUndLrAIqoRaXCeLPa9rHng9dXL5Q2XD4pyQA/exec";
 
 const DB_CACHE_KEY = "duBusFinderDatabaseV1";
+const THEME_KEY = "duBusFinderTheme";
+const FAVORITES_KEY = "duBusFinderFavorites";
+const RECENT_KEY = "duBusFinderRecent";
 
 let scheduleRows = [];
 let busRows = [];
 let stopRows = [];
 let serviceDayRows = [];
+
 let deferredPrompt;
 let databaseLoading = false;
 let databaseLoaded = false;
 
+let suggestionPanels = {};
+
 const $ = id => document.getElementById(id);
 const results = $("results");
 
-let suggestionPanels = {};
 
-/* ----------------------------------
-   BASIC HELPERS
----------------------------------- */
+/* =========================================
+   THEME SYSTEM
+========================================= */
 
-function normalize(v) {
-  return String(v ?? "").trim().toLowerCase();
+function applyTheme(theme) {
+  const selectedTheme =
+    theme === "dark" ? "dark" : "light";
+
+  document.documentElement.dataset.theme = selectedTheme;
+
+  try {
+    localStorage.setItem(THEME_KEY, selectedTheme);
+  } catch (error) {
+    console.warn("Theme preference could not be saved.", error);
+  }
+
+  const themeIcon = document.querySelector(".theme-icon");
+  const themeButton = $("themeToggle");
+
+  if (themeIcon) {
+    themeIcon.textContent =
+      selectedTheme === "dark" ? "☀" : "☾";
+  }
+
+  if (themeButton) {
+    themeButton.setAttribute(
+      "aria-label",
+      selectedTheme === "dark"
+        ? "Switch to light mode"
+        : "Switch to dark mode"
+    );
+  }
 }
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({
+function initializeTheme() {
+  let savedTheme = null;
+
+  try {
+    savedTheme = localStorage.getItem(THEME_KEY);
+  } catch (error) {
+    console.warn("Could not read saved theme.", error);
+  }
+
+  if (!savedTheme) {
+    savedTheme = window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
+  }
+
+  applyTheme(savedTheme);
+}
+
+const themeToggle = $("themeToggle");
+
+if (themeToggle) {
+  themeToggle.addEventListener("click", () => {
+    const current =
+      document.documentElement.dataset.theme || "light";
+
+    applyTheme(current === "dark" ? "light" : "dark");
+  });
+}
+
+initializeTheme();
+
+
+/* =========================================
+   BASIC HELPERS
+========================================= */
+
+function normalize(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, char => ({
     "&": "&amp;",
     "<": "&lt;",
     ">": "&gt;",
     '"': "&quot;",
     "'": "&#39;"
-  }[c]));
+  }[char]));
 }
 
 function setStatus(message, success = false) {
   const status = $("dataStatus");
+
   if (!status) return;
 
   status.textContent = message;
-  status.style.background = success ? "#d9f2e6" : "#fff0d9";
-  status.style.color = success ? "#12634f" : "#80551b";
+  status.classList.toggle("success", success);
 }
 
 function showEmpty(title, message) {
   const titleElement = $("resultTitle");
 
-  if (titleElement) titleElement.textContent = title;
+  if (titleElement) {
+    titleElement.textContent = title;
+  }
+
   if (!results) return;
 
   results.className = "results empty";
@@ -65,7 +145,10 @@ function showEmpty(title, message) {
 function showConnectionError(title, message) {
   const titleElement = $("resultTitle");
 
-  if (titleElement) titleElement.textContent = title;
+  if (titleElement) {
+    titleElement.textContent = title;
+  }
+
   if (!results) return;
 
   results.className = "results empty";
@@ -74,24 +157,222 @@ function showConnectionError(title, message) {
     <div class="empty-icon">⚠️</div>
     <h3>${escapeHtml(title)}</h3>
     <p>${escapeHtml(message)}</p>
-    <button type="button" id="retryConnection"
-      style="margin-top:12px;padding:10px 20px;border:0;
-      border-radius:8px;background:#102a43;color:white;
-      cursor:pointer;font-size:14px;">
+    <button type="button" id="retryConnection" class="retry-button">
       Try Again
     </button>
   `;
 
-  const retryButton = $("retryConnection");
+  $("retryConnection")?.addEventListener("click", loadDatabase);
+}
 
-  if (retryButton) {
-    retryButton.addEventListener("click", loadDatabase);
+
+/* =========================================
+   LOCAL STORAGE HELPERS
+========================================= */
+
+function readLocalArray(key) {
+  try {
+    const value = JSON.parse(localStorage.getItem(key) || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch (error) {
+    return [];
   }
 }
 
-/* ----------------------------------
-   BANGLA TO ENGLISH TRANSLITERATION
----------------------------------- */
+function saveLocalArray(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (error) {
+    console.error("Could not save local preference:", error);
+    return false;
+  }
+}
+
+
+/* =========================================
+   FAVORITE BUSES
+========================================= */
+
+function getFavorites() {
+  return readLocalArray(FAVORITES_KEY);
+}
+
+function isFavorite(busName) {
+  return getFavorites().includes(busName);
+}
+
+function toggleFavorite(busName) {
+  if (!busName) return;
+
+  let favorites = getFavorites();
+
+  if (favorites.includes(busName)) {
+    favorites = favorites.filter(name => name !== busName);
+  } else {
+    favorites.push(busName);
+  }
+
+  saveLocalArray(FAVORITES_KEY, favorites);
+
+  renderFavoriteSection();
+
+  if (databaseLoaded) {
+    const busInput = $("busSearch");
+
+    if (busInput && busInput.value.trim() === busName) {
+      runSearch();
+    }
+  }
+}
+
+function renderFavoriteSection() {
+  const section = $("favoriteSection");
+
+  if (!section) return;
+
+  const favorites = getFavorites();
+
+  if (!favorites.length) {
+    section.innerHTML = "";
+    return;
+  }
+
+  section.innerHTML = `
+    <div class="personal-section-heading">
+      <div>
+        <div class="eyebrow">YOUR COLLECTION</div>
+        <h3>Favourite buses</h3>
+      </div>
+    </div>
+
+    <div class="personal-chip-list">
+      ${favorites.map(name => `
+        <button
+          type="button"
+          class="personal-chip"
+          data-favorite-bus="${escapeHtml(name)}"
+        >
+          <span>★</span>
+          ${escapeHtml(name)}
+        </button>
+      `).join("")}
+    </div>
+  `;
+
+  section.querySelectorAll("[data-favorite-bus]").forEach(button => {
+    button.addEventListener("click", () => {
+      $("busSearch").value = button.dataset.favoriteBus;
+      runSearch();
+      $("search-section")?.scrollIntoView({ behavior: "smooth" });
+    });
+  });
+}
+
+
+/* =========================================
+   RECENT SEARCHES
+========================================= */
+
+function getRecentSearches() {
+  return readLocalArray(RECENT_KEY);
+}
+
+function saveRecentSearch(bus, stop, direction, time) {
+  const item = {
+    bus,
+    stop,
+    direction,
+    time,
+    label: [
+      bus,
+      stop,
+      direction,
+      time
+    ].filter(Boolean).join(" · ")
+  };
+
+  if (!item.label) return;
+
+  let recent = getRecentSearches();
+
+  recent = recent.filter(old =>
+    old.label !== item.label
+  );
+
+  recent.unshift(item);
+  recent = recent.slice(0, 5);
+
+  saveLocalArray(RECENT_KEY, recent);
+
+  renderRecentSection();
+}
+
+function renderRecentSection() {
+  const section = $("recentSection");
+
+  if (!section) return;
+
+  const recent = getRecentSearches();
+
+  if (!recent.length) {
+    section.innerHTML = "";
+    return;
+  }
+
+  section.innerHTML = `
+    <div class="personal-section-heading">
+      <div>
+        <div class="eyebrow">SEARCH HISTORY</div>
+        <h3>Recent searches</h3>
+      </div>
+
+      <button type="button" class="clear-recent">
+        Clear history
+      </button>
+    </div>
+
+    <div class="personal-chip-list">
+      ${recent.map((item, index) => `
+        <button
+          type="button"
+          class="personal-chip recent-chip"
+          data-recent-index="${index}"
+        >
+          <span>◷</span>
+          ${escapeHtml(item.label)}
+        </button>
+      `).join("")}
+    </div>
+  `;
+
+  section.querySelectorAll("[data-recent-index]").forEach(button => {
+    button.addEventListener("click", () => {
+      const item = recent[Number(button.dataset.recentIndex)];
+
+      if (!item) return;
+
+      $("busSearch").value = item.bus || "";
+      $("stopSearch").value = item.stop || "";
+      $("direction").value = item.direction || "";
+      $("timeSearch").value = item.time || "";
+
+      runSearch();
+
+      $("search-section")?.scrollIntoView({ behavior: "smooth" });
+    });
+  });
+
+  section.querySelector(".clear-recent")?.addEventListener("click", () => {
+    saveLocalArray(RECENT_KEY, []);
+    renderRecentSection();
+  });
+}
+
+
+/* =========================================
+   BANGLA TRANSLITERATION
+========================================= */
 
 const banglaMap = {
   "অ":"o","আ":"a","ই":"i","ঈ":"i",
@@ -117,9 +398,10 @@ function transliterateBangla(value) {
     .join("");
 }
 
-/* ----------------------------------
+
+/* =========================================
    SEARCH NORMALIZATION
----------------------------------- */
+========================================= */
 
 function searchNormalize(value) {
   let text = normalize(value);
@@ -149,9 +431,10 @@ function searchNormalize(value) {
   return text;
 }
 
-/* ----------------------------------
+
+/* =========================================
    FUZZY MATCHING
----------------------------------- */
+========================================= */
 
 function levenshtein(a, b) {
   if (a === b) return 0;
@@ -160,7 +443,7 @@ function levenshtein(a, b) {
 
   let previous = Array.from(
     { length: b.length + 1 },
-    (_, i) => i
+    (_, index) => index
   );
 
   for (let i = 1; i <= a.length; i++) {
@@ -212,9 +495,10 @@ function getMatchScore(query, target) {
   return score >= threshold ? Math.round(score * 80) : 0;
 }
 
-/* ----------------------------------
-   LOCAL DATABASE SAVE AND LOAD
----------------------------------- */
+
+/* =========================================
+   OFFLINE DATABASE
+========================================= */
 
 function saveDatabaseLocally(data) {
   try {
@@ -232,8 +516,6 @@ function saveDatabaseLocally(data) {
       DB_CACHE_KEY,
       JSON.stringify(backup)
     );
-
-    console.log("Offline database saved successfully.");
 
     return true;
 
@@ -269,9 +551,10 @@ function getLocalDatabase() {
   }
 }
 
-/* ----------------------------------
+
+/* =========================================
    APPLY DATABASE
----------------------------------- */
+========================================= */
 
 function applyDatabase(data, source) {
   busRows = data.buses;
@@ -311,23 +594,25 @@ function applyDatabase(data, source) {
       `${total} available from your saved database. You can search without internet.`
     );
   }
+
+  renderFavoriteSection();
+  renderRecentSection();
 }
 
-/* ----------------------------------
-   ONLINE + OFFLINE DATABASE CONNECTION
----------------------------------- */
+
+/* =========================================
+   ONLINE + OFFLINE CONNECTION
+========================================= */
 
 function loadDatabase() {
   if (databaseLoading) return;
 
-  // Load saved database first.
   const cachedData = getLocalDatabase();
 
   if (cachedData) {
     applyDatabase(cachedData, "offline");
   }
 
-  // No internet: use local database.
   if (!navigator.onLine) {
     if (!cachedData) {
       databaseLoaded = false;
@@ -343,7 +628,6 @@ function loadDatabase() {
     return;
   }
 
-  // Check API URL.
   if (!API_URL || API_URL.includes("PASTE_YOUR")) {
     if (!cachedData) {
       databaseLoaded = false;
@@ -396,7 +680,6 @@ function loadDatabase() {
     completed = true;
     cleanup();
 
-    // Use local database if online API fails.
     if (cachedData) {
       applyDatabase(cachedData, "offline");
 
@@ -445,19 +728,13 @@ function loadDatabase() {
     completed = true;
     cleanup();
 
-    // Save the entire database, not searched results.
     const saved = saveDatabaseLocally(data);
 
-    // Load online database.
     applyDatabase(data, "online");
 
     if (!saved) {
       setStatus(
         "Online database connected · Offline saving failed"
-      );
-
-      console.error(
-        "Could not save database for offline use."
       );
     }
   };
@@ -477,12 +754,8 @@ function loadDatabase() {
   document.body.appendChild(script);
 }
 
-// Refresh database when internet returns.
-window.addEventListener("online", () => {
-  loadDatabase();
-});
+window.addEventListener("online", loadDatabase);
 
-// Keep saved database active when internet disconnects.
 window.addEventListener("offline", () => {
   const saved = getLocalDatabase();
 
@@ -500,19 +773,23 @@ window.addEventListener("offline", () => {
   }
 });
 
-/* ----------------------------------
-   GET UNIQUE BUS AND STOP NAMES
----------------------------------- */
+
+/* =========================================
+   BUS AND STOP NAMES
+========================================= */
 
 function getBusNames() {
   const names = new Set();
 
   scheduleRows.forEach(row => {
-    if (row.bus_name) names.add(String(row.bus_name).trim());
+    if (row.bus_name) {
+      names.add(String(row.bus_name).trim());
+    }
   });
 
   busRows.forEach(row => {
     const name = row.bus_name || row.name;
+
     if (name) names.add(String(name).trim());
   });
 
@@ -524,6 +801,7 @@ function getStopNames() {
 
   scheduleRows.forEach(row => {
     const name = row.stopage || row.stopage_name;
+
     if (name) names.add(String(name).trim());
   });
 
@@ -540,13 +818,10 @@ function getStopNames() {
   return [...names].filter(Boolean);
 }
 
-/* ----------------------------------
-   SMART MATCH
----------------------------------- */
 
-function findBestMatch(query, name) {
-  return getMatchScore(query, name);
-}
+/* =========================================
+   SMART MATCH
+========================================= */
 
 function smartMatches(query, names) {
   if (!query.trim()) return [];
@@ -554,37 +829,29 @@ function smartMatches(query, names) {
   return names
     .map(name => ({
       name,
-      score: findBestMatch(query, name)
+      score: getMatchScore(query, name)
     }))
     .filter(item => item.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 8);
 }
 
-/* ----------------------------------
-   LIVE SUGGESTION DESIGN
----------------------------------- */
+
+/* =========================================
+   LIVE SUGGESTIONS
+========================================= */
 
 function createSuggestionPanel(inputId) {
   const input = $(inputId);
+
   if (!input) return null;
 
   const panel = document.createElement("div");
 
-  panel.style.cssText = `
-    display:none;
-    position:fixed;
-    z-index:99999;
-    background:#ffffff;
-    border:1px solid #ddd;
-    border-radius:10px;
-    box-shadow:0 5px 18px rgba(0,0,0,0.15);
-    max-height:260px;
-    overflow-y:auto;
-    padding:5px;
-  `;
+  panel.className = "suggestion-panel";
 
   document.body.appendChild(panel);
+
   suggestionPanels[inputId] = panel;
 
   return panel;
@@ -621,41 +888,29 @@ function showSuggestions(inputId, matches) {
     <button
       type="button"
       data-value="${escapeHtml(item.name)}"
-      style="
-        display:block;
-        width:100%;
-        padding:11px 12px;
-        border:0;
-        border-bottom:1px solid #eee;
-        background:white;
-        text-align:left;
-        cursor:pointer;
-        color:#222;
-        font-size:14px;
-      "
     >
       🚌 ${escapeHtml(item.name)}
     </button>
   `).join("");
 
   positionPanel(input, panel);
+
   panel.style.display = "block";
 
   panel.querySelectorAll("button").forEach(button => {
     button.addEventListener("click", () => {
       input.value = button.dataset.value;
+
       hideSuggestions(inputId);
+
       runSearch();
     });
   });
 }
 
-/* ----------------------------------
-   LIVE SEARCH SUGGESTIONS
----------------------------------- */
-
 function setupSuggestions(inputId, getNames) {
   const input = $(inputId);
+
   if (!input) return;
 
   createSuggestionPanel(inputId);
@@ -685,14 +940,14 @@ function setupSuggestions(inputId, getNames) {
     );
   });
 
-  input.addEventListener("keydown", e => {
-    if (e.key === "Escape") {
+  input.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
       hideSuggestions(inputId);
     }
   });
 }
 
-document.addEventListener("click", e => {
+document.addEventListener("click", event => {
   Object.keys(suggestionPanels).forEach(id => {
     const panel = suggestionPanels[id];
     const input = $(id);
@@ -700,8 +955,8 @@ document.addEventListener("click", e => {
     if (
       panel &&
       input &&
-      !panel.contains(e.target) &&
-      !input.contains(e.target)
+      !panel.contains(event.target) &&
+      !input.contains(event.target)
     ) {
       hideSuggestions(id);
     }
@@ -722,9 +977,10 @@ function repositionSuggestions() {
 window.addEventListener("resize", repositionSuggestions);
 window.addEventListener("scroll", repositionSuggestions, true);
 
-/* ----------------------------------
+
+/* =========================================
    TIME CONVERSION
----------------------------------- */
+========================================= */
 
 function toMinutes(value) {
   if (!value) return null;
@@ -757,12 +1013,14 @@ function toMinutes(value) {
 
 function timeDifference(a, b) {
   const difference = Math.abs(a - b);
+
   return Math.min(difference, 1440 - difference);
 }
 
-/* ----------------------------------
+
+/* =========================================
    DIRECTION MATCHING
----------------------------------- */
+========================================= */
 
 function directionMatches(rowDirection, selectedDirection) {
   if (!selectedDirection) return true;
@@ -781,9 +1039,10 @@ function directionMatches(rowDirection, selectedDirection) {
   return true;
 }
 
-/* ----------------------------------
-   DISPLAY RESULTS
----------------------------------- */
+
+/* =========================================
+   RENDER RESULTS
+========================================= */
 
 function renderRows(rows, title) {
   if ($("resultTitle")) {
@@ -795,6 +1054,7 @@ function renderRows(rows, title) {
       title,
       "No matching schedule was found. Try another bus name, stopage, time or direction."
     );
+
     return;
   }
 
@@ -802,27 +1062,51 @@ function renderRows(rows, title) {
 
   results.className = "results";
 
-  results.innerHTML = rows.map(r => {
-    const bus = r.bus_name || "Bus name unavailable";
-    const stop = r.stopage || r.stopage_name || "Stopage unavailable";
-    const direction = r.direction || "Direction unavailable";
-    const time = r.trip_time || "Time unavailable";
+  results.innerHTML = rows.map(row => {
+    const bus = row.bus_name || "Bus name unavailable";
+    const stop = row.stopage || row.stopage_name || "Stopage unavailable";
+    const direction = row.direction || "Direction unavailable";
+    const time = row.trip_time || "Time unavailable";
+
+    const favorite = isFavorite(bus);
 
     return `
       <div class="result-row">
+
         <div>
           <strong>${escapeHtml(bus)}</strong>
           <small>${escapeHtml(stop)} · ${escapeHtml(direction)}</small>
         </div>
-        <div class="time">${escapeHtml(time)}</div>
+
+        <div class="result-actions">
+          <div class="time">${escapeHtml(time)}</div>
+
+          <button
+            type="button"
+            class="favorite-button ${favorite ? "active" : ""}"
+            data-bus="${escapeHtml(bus)}"
+            aria-label="${favorite ? "Remove favorite" : "Add favorite"}"
+            title="${favorite ? "Remove favourite" : "Add favourite"}"
+          >
+            ${favorite ? "★" : "☆"}
+          </button>
+        </div>
+
       </div>
     `;
   }).join("");
+
+  results.querySelectorAll(".favorite-button").forEach(button => {
+    button.addEventListener("click", () => {
+      toggleFavorite(button.dataset.bus);
+    });
+  });
 }
 
-/* ----------------------------------
-   MAIN SMART SEARCH
----------------------------------- */
+
+/* =========================================
+   MAIN SEARCH
+========================================= */
 
 function runSearch() {
   if (!databaseLoaded || !scheduleRows.length) {
@@ -830,25 +1114,21 @@ function runSearch() {
       "Database not loaded",
       "Please wait for the database connection or try again."
     );
+
     return;
   }
 
   hideSuggestions("busSearch");
   hideSuggestions("stopSearch");
 
-  const busInput = $("busSearch");
-  const stopInput = $("stopSearch");
-  const directionInput = $("direction");
-  const timeInput = $("timeSearch");
+  const bus = $("busSearch")?.value.trim() || "";
+  const stop = $("stopSearch")?.value.trim() || "";
+  const direction = $("direction")?.value || "";
+  const time = $("timeSearch")?.value || "";
 
-  const bus = busInput ? busInput.value.trim() : "";
-  const stop = stopInput ? stopInput.value.trim() : "";
-  const dir = directionInput ? directionInput.value : "";
-  const time = timeInput ? timeInput.value : "";
-
-  let rows = scheduleRows.filter(r => {
-    const busName = r.bus_name || "";
-    const stopName = r.stopage || r.stopage_name || "";
+  let rows = scheduleRows.filter(row => {
+    const busName = row.bus_name || "";
+    const stopName = row.stopage || row.stopage_name || "";
 
     const busMatch =
       !bus || getMatchScore(bus, busName) > 0;
@@ -857,12 +1137,10 @@ function runSearch() {
       !stop || getMatchScore(stop, stopName) > 0;
 
     const directionMatch =
-      directionMatches(r.direction, dir);
+      directionMatches(row.direction, direction);
 
     return busMatch && stopMatch && directionMatch;
   });
-
-  /* Time Search: trip_time only, within ±30 minutes */
 
   if (time) {
     const target = toMinutes(time);
@@ -872,8 +1150,8 @@ function runSearch() {
       return;
     }
 
-    rows = rows.filter(r => {
-      const rowTime = toMinutes(r.trip_time);
+    rows = rows.filter(row => {
+      const rowTime = toMinutes(row.trip_time);
 
       return rowTime !== null &&
         timeDifference(rowTime, target) <= 30;
@@ -898,57 +1176,57 @@ function runSearch() {
     title = "Stopage results";
   } else if (time) {
     title = "Buses within ±30 minutes";
-  } else if (dir) {
-    title = dir === "UP" ? "Up Trip Buses" : "Down Trip Buses";
+  } else if (direction) {
+    title = direction === "UP"
+      ? "Up Trip Buses"
+      : "Down Trip Buses";
   }
+
+  saveRecentSearch(bus, stop, direction, time);
 
   renderRows(rows, title);
-}
 
-/* ----------------------------------
-   SEARCH BUTTON AND ENTER KEY
----------------------------------- */
-
-const searchButton = $("searchBtn");
-
-if (searchButton) {
-  searchButton.addEventListener("click", runSearch);
-}
-
-["busSearch", "stopSearch"].forEach(id => {
-  const input = $(id);
-
-  if (input) {
-    input.addEventListener("keydown", e => {
-      if (e.key === "Enter") {
-        hideSuggestions(id);
-        runSearch();
-      }
-    });
-  }
-});
-
-const timeSearchInput = $("timeSearch");
-
-if (timeSearchInput) {
-  timeSearchInput.addEventListener("keydown", e => {
-    if (e.key === "Enter") runSearch();
+  $("results-section")?.scrollIntoView({
+    behavior: "smooth",
+    block: "start"
   });
 }
 
-/* ----------------------------------
-   QUICK SEARCH CARDS
----------------------------------- */
 
-document.querySelectorAll(".quick-card").forEach(btn => {
-  btn.addEventListener("click", () => {
-    const mode = btn.dataset.mode;
+/* =========================================
+   SEARCH EVENTS
+========================================= */
+
+$("searchBtn")?.addEventListener("click", runSearch);
+
+["busSearch", "stopSearch"].forEach(id => {
+  $(id)?.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+      hideSuggestions(id);
+      runSearch();
+    }
+  });
+});
+
+$("timeSearch")?.addEventListener("keydown", event => {
+  if (event.key === "Enter") runSearch();
+});
+
+
+/* =========================================
+   QUICK SEARCH CARDS
+========================================= */
+
+document.querySelectorAll(".quick-card").forEach(button => {
+  button.addEventListener("click", () => {
+    const mode = button.dataset.mode;
 
     if (mode === "near") {
       $("timeSearch")?.focus();
 
       if ($("resultTitle")) {
-        $("resultTitle").textContent = "Buses within ±30 minutes";
+        $("resultTitle").textContent =
+          "Buses within ±30 minutes";
       }
 
     } else if (mode === "direction") {
@@ -960,43 +1238,55 @@ document.querySelectorAll(".quick-card").forEach(btn => {
         "This feature needs reliable stop-wise times. It will show an estimate, never live GPS."
       );
 
+      $("results-section")?.scrollIntoView({
+        behavior: "smooth"
+      });
+
     } else {
       $("stopSearch")?.focus();
     }
+
+    $("search-section")?.scrollIntoView({
+      behavior: "smooth"
+    });
   });
 });
 
-/* ----------------------------------
-   PWA INSTALLATION
----------------------------------- */
 
-window.addEventListener("beforeinstallprompt", e => {
-  e.preventDefault();
-  deferredPrompt = e;
+/* =========================================
+   PWA INSTALLATION
+========================================= */
+
+window.addEventListener("beforeinstallprompt", event => {
+  event.preventDefault();
+
+  deferredPrompt = event;
 
   const installButton = $("installBtn");
-  if (installButton) installButton.hidden = false;
+
+  if (installButton) {
+    installButton.hidden = false;
+  }
 });
 
-const installButton = $("installBtn");
+$("installBtn")?.addEventListener("click", async () => {
+  if (!deferredPrompt) return;
 
-if (installButton) {
-  installButton.addEventListener("click", async () => {
-    if (!deferredPrompt) return;
+  try {
+    await deferredPrompt.prompt();
+    deferredPrompt = null;
 
-    try {
-      await deferredPrompt.prompt();
-      deferredPrompt = null;
-      installButton.hidden = true;
-    } catch (error) {
-      console.error("PWA installation error:", error);
-    }
-  });
-}
+    $("installBtn").hidden = true;
 
-/* ----------------------------------
+  } catch (error) {
+    console.error("PWA installation error:", error);
+  }
+});
+
+
+/* =========================================
    SERVICE WORKER
----------------------------------- */
+========================================= */
 
 if (
   "serviceWorker" in navigator &&
@@ -1004,13 +1294,17 @@ if (
 ) {
   navigator.serviceWorker.register("./sw.js")
     .catch(error => {
-      console.warn("Service Worker registration failed:", error);
+      console.warn(
+        "Service Worker registration failed:",
+        error
+      );
     });
 }
 
-/* ----------------------------------
+
+/* =========================================
    GLOBAL ERROR HANDLING
----------------------------------- */
+========================================= */
 
 window.addEventListener("error", event => {
   console.error("JavaScript error:", event.message);
@@ -1020,15 +1314,15 @@ window.addEventListener("unhandledrejection", event => {
   console.error("Unhandled promise rejection:", event.reason);
 });
 
-/* ----------------------------------
-   INITIALIZE SMART SEARCH
----------------------------------- */
+
+/* =========================================
+   INITIALIZATION
+========================================= */
 
 setupSuggestions("busSearch", getBusNames);
 setupSuggestions("stopSearch", getStopNames);
 
-/* ----------------------------------
-   LOAD DATABASE
----------------------------------- */
+renderFavoriteSection();
+renderRecentSection();
 
 loadDatabase();
