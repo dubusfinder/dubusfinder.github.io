@@ -776,3 +776,13 @@ html[data-theme="dark"] .custom-time-picker select option{background:#19272d;col
   }
   .time-field-group .exact-time-panel .clock-face { width: min(100%, 270px); }
 }
+
+
+/* Traditional analog clock face */
+.clock-face{width:250px;max-width:100%;background:var(--surface);border:2px solid var(--border);}
+.clock-number{z-index:2;transform:translate(-50%,-50%) rotate(var(--clock-angle)) translateY(-94px) rotate(calc(-1 * var(--clock-angle)));}
+.clock-hand{position:absolute;left:50%;top:50%;z-index:1;pointer-events:none;border-radius:99px;transform-origin:50% 100%;transform:translate(-50%,-100%) rotate(var(--hand-angle));}
+.clock-hour-hand{width:5px;height:55px;background:var(--text);}
+.clock-minute-hand{width:3px;height:82px;background:var(--primary);}
+.clock-face:before{z-index:3;width:10px;height:10px;}
+@media(max-width:640px){.clock-number{transform:translate(-50%,-50%) rotate(var(--clock-angle)) translateY(-min(35vw,94px)) rotate(calc(-1 * var(--clock-angle)));}}
