@@ -32,10 +32,10 @@
         </span>
       </a>
 
-      <nav class="main-nav" aria-label="Main navigation">
+      <nav class="main-nav" id="mainNavigation" aria-label="Main navigation">
         <a href="#search-section">লাল বাস</a>
+        <a href="#results-section">Schedule</a>
         <a href="#quick-search">Explore</a>
-        <a href="#results-section">Schedules</a>
       </nav>
 
       <div class="header-actions">
@@ -49,6 +49,16 @@
           🌙
         </button>
         <button type="button" id="installBtn" class="install-btn" hidden>Install</button>
+        <button
+          type="button"
+          id="mobileMenuToggle"
+          class="mobile-menu-toggle"
+          aria-label="Open navigation menu"
+          aria-controls="mainNavigation"
+          aria-expanded="false"
+        >
+          <span></span><span></span><span></span>
+        </button>
       </div>
 
     </div>
