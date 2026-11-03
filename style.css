@@ -395,3 +395,68 @@ html[data-theme="dark"] .direction-options{background:#182832}
 html[data-theme="dark"] .direction-options button{color:#f1f6f8}
 html[data-theme="dark"] .direction-options button:hover{background:#294b43}
 @media(max-width:640px){.direction-control{height:46px}.direction-switch{width:46px;flex-basis:46px}}
+
+
+/* === Readability and contrast refinements === */
+:root{
+  --background:#edf3f1;
+  --surface:#f9fcfa;
+  --surface-soft:#eaf2ee;
+  --text:#18312f;
+  --muted:#526b68;
+  --border:#cbdad4;
+  --primary:#08745f;
+  --primary-hover:#075c4d;
+  --primary-soft:#dcefe7;
+}
+html[data-theme="dark"]{
+  --background:#0d171b;
+  --surface:#19272d;
+  --surface-soft:#22343b;
+  --text:#f0f6f4;
+  --muted:#bdcbc7;
+  --border:#40545a;
+  --primary:#287f69;
+  --primary-hover:#35977e;
+  --primary-soft:#24483e;
+}
+/* Search heading sits on the page surface, not on the hero image. */
+.search-section{margin-top:0}
+.search-section .section-heading h2{color:var(--text)}
+.search-section .section-heading p{color:var(--muted)}
+/* Make the theme control stand out without a glow. */
+.theme-toggle{
+  border:1px solid var(--primary);
+  background:var(--primary-soft);
+  color:var(--text);
+  box-shadow:none;
+}
+.theme-toggle:hover{background:var(--surface-soft);border-color:var(--primary-hover);box-shadow:none}
+/* Strong solid actions instead of pale/glowing buttons. */
+.search-btn,.install-btn,.retry-button{
+  background:var(--primary);
+  color:#fff;
+  box-shadow:none;
+  text-shadow:none;
+}
+.search-btn:hover,.install-btn:hover,.retry-button:hover{
+  background:var(--primary-hover);
+  box-shadow:none;
+}
+/* Autocomplete uses active theme surfaces and readable text. */
+.suggestion-panel{
+  background:var(--surface)!important;
+  border-color:var(--border)!important;
+  box-shadow:0 12px 30px rgba(0,0,0,.18)!important;
+}
+.suggestion-panel button{color:var(--text)!important}
+.suggestion-panel button:hover{background:var(--primary-soft)!important}
+html[data-theme="dark"] .suggestion-panel{background:#19272d!important}
+html[data-theme="dark"] .suggestion-panel button{color:#f0f6f4!important;background:transparent!important}
+html[data-theme="dark"] .suggestion-panel button:hover{background:#2b4a43!important}
+.direction-current,.direction-switch{color:var(--text)}
+.direction-current{background:var(--surface-soft)}
+.direction-switch{background:var(--primary-soft);border-color:var(--primary);color:var(--text)}
+.direction-options{background:var(--surface)!important;border-color:var(--border)!important}
+.direction-options button{color:var(--text)!important}
+.direction-options button:hover{background:var(--primary-soft)!important}
