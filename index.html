@@ -1,363 +1,318 @@
 
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#126b59">
 
-  <title>DU BUS FINDER - Dhaka University Bus Schedule</title>
+  <title>DU Bus Finder | Dhaka University</title>
 
-  <meta name="description" content="Find Dhaka University bus schedules, routes, stopages and departure times easily with DU BUS FINDER.">
-  <meta name="keywords" content="Dhaka University Bus, DU Bus Schedule, DU Bus Route, Dhaka University Transport">
-  <meta name="author" content="DU BUS FINDER">
-  <meta name="theme-color" content="#102a43">
-  <meta name="robots" content="index, follow">
-  <meta name="color-scheme" content="light dark">
- <a href="#search-section">লাল বাস / Lal Bus</a>
+  <meta name="description" content="Find Dhaka University bus schedules, routes and stopages easily with DU Bus Finder.">
+  <meta name="keywords" content="DU Bus Finder, Dhaka University Bus, DU Bus Schedule, Lal Bus">
+  <meta name="author" content="DU Bus Finder">
+
   <link rel="manifest" href="./manifest.json">
-  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
-  <link rel="apple-touch-icon" href="./icon-192.png">
-
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="DU BUS FINDER - Dhaka University Bus Schedule">
-  <meta property="og:description" content="Find Dhaka University bus routes, stopages and schedules easily.">
-  <meta property="og:url" content="https://dubusfinder.github.io/">
-  <meta property="og:site_name" content="DU BUS FINDER">
-  <meta property="og:image" content="https://dubusfinder.github.io/icon-512.png">
-
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="DU BUS FINDER">
-  <meta name="twitter:description" content="Dhaka University Bus Schedule Finder">
-  <meta name="twitter:image" content="https://dubusfinder.github.io/icon-512.png">
-
+  <link rel="icon" href="./favicon.ico">
   <link rel="stylesheet" href="./style.css">
+
 </head>
 
 <body>
 
   <!-- HEADER -->
-  <header class="topbar">
+  <header class="site-header">
+    <div class="header-inner">
 
-    <a class="brand" href="./" aria-label="DU BUS FINDER Home">
-      <span class="brand-mark">DU</span>
+      <a href="./" class="brand" aria-label="DU Bus Finder Home">
+        <span class="brand-icon">🚌</span>
+        <span class="brand-text">
+          <strong>DU Bus Finder</strong>
+          <small>Dhaka University</small>
+        </span>
+      </a>
 
-      <span class="brand-text">
-        <strong>BUS FINDER</strong>
-        <small>University of Dhaka</small>
-      </span>
-    </a>
+      <nav class="main-nav" aria-label="Main navigation">
+        <a href="#search-section">লাল বাস / Lal Bus</a>
+        <a href="#quick-search">Explore</a>
+        <a href="#results-section">Schedules</a>
+      </nav>
 
-    <nav class="main-nav" aria-label="Main navigation">
-      <a href="#search-section">Find a bus</a>
-      <a href="#quick-search">Explore</a>
-      <a href="#results-section">Schedules</a>
-    </nav>
-
-    <div class="header-actions">
-
-      <button
-        type="button"
-        id="themeToggle"
-        class="theme-toggle"
-        aria-label="Toggle dark mode"
-        title="Change appearance"
-      >
-        <span class="theme-icon">☾</span>
-      </button>
-
-      <button id="installBtn" class="install-btn" hidden>
-        <span>↓</span> Install app
-      </button>
+      <div class="header-actions">
+        <button
+          type="button"
+          id="themeToggle"
+          class="theme-toggle"
+          aria-label="Toggle theme"
+          title="Toggle theme"
+        >
+          🌙
+        </button>
+      </div>
 
     </div>
-
   </header>
 
 
+  <!-- MAIN -->
   <main>
 
-    <!-- HERO / SEARCH -->
-    <section class="hero" id="search-section">
+    <!-- HERO SECTION -->
+    <section class="hero">
 
-      <div class="hero-inner">
+      <div class="hero-content">
 
-        <div class="hero-copy">
+        <span class="hero-label">DHaka University Transport</span>
 
-          <div class="eyebrow">
-            <span class="live-dot"></span>
-            DHAKA UNIVERSITY TRANSPORT
-          </div>
+        <h1>
+          Find Your Bus,<br>
+          <span>Reach Your Destination.</span>
+        </h1>
 
-          <h1>
-            Find your bus.<br>
-            <span>Plan your journey.</span>
-          </h1>
+        <p>
+          Search Dhaka University bus schedules, routes and stopages
+          quickly and easily.
+        </p>
 
-          <p class="hero-description">
-            Your university bus schedule, routes and stopage
-            information — all in one place.
-          </p>
-
-          <div class="hero-points">
-            <span>✓ Easy bus search</span>
-            <span>✓ Stopage information</span>
-            <span>✓ Offline support</span>
-          </div>
-
+        <div class="hero-points">
+          <span>✓ Easy Search</span>
+          <span>✓ All Bus Routes</span>
+          <span>✓ Offline Support</span>
         </div>
 
-
-        <!-- SEARCH PANEL -->
-        <div class="search-panel">
-
-          <div class="search-panel-heading">
-            <div>
-              <span class="panel-label">BUS SEARCH</span>
-              <h2>Where do you want to go?</h2>
-            </div>
-
-            <span class="search-panel-icon">⌕</span>
-          </div>
-
-
-          <div class="form-group">
-            <label for="busSearch">
-              <span class="field-number">01</span>
-              Which bus are you looking for?
-            </label>
-
-            <div class="input-wrap">
-              <span class="input-icon">🚌</span>
-
-              <input
-                id="busSearch"
-                type="search"
-                placeholder="Search a bus name..."
-                autocomplete="off"
-                aria-label="Search bus name"
-              >
-            </div>
-          </div>
-
-
-          <div class="form-group">
-            <label for="stopSearch">
-              <span class="field-number">02</span>
-              Where are you boarding?
-            </label>
-
-            <div class="input-wrap">
-              <span class="input-icon">📍</span>
-
-              <input
-                id="stopSearch"
-                type="search"
-                placeholder="Search a stopage..."
-                autocomplete="off"
-                aria-label="Search stopage"
-              >
-            </div>
-          </div>
-
-
-          <div class="filters">
-
-            <div class="form-group">
-              <label for="direction">
-                Trip direction
-              </label>
-
-              <select id="direction">
-                <option value="">All directions</option>
-                <option value="UP">Up trip</option>
-                <option value="DOWN">Down trip</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label for="timeSearch">
-                Around what time?
-              </label>
-
-              <input
-                id="timeSearch"
-                type="time"
-                aria-label="Search around a time"
-              >
-            </div>
-
-          </div>
-
-
-          <button id="searchBtn" class="primary">
-            <span>Find buses</span>
-            <span class="button-arrow">→</span>
-          </button>
-
-          <p class="search-hint">
-            Search by bus name, stopage, direction or time.
-          </p>
-
-        </div>
-
-      </div>
-
-
-      <div class="notice">
-        <span>i</span>
-        Schedule-based estimates only. This is not live GPS tracking.
       </div>
 
     </section>
 
 
-    <!-- MAIN CONTENT -->
-    <section class="content">
+    <!-- SEARCH SECTION -->
+    <section class="search-section" id="search-section">
+
+      <div class="section-heading">
+        <span class="section-label">BUS SEARCH</span>
+        <h2>Find Your Bus</h2>
+        <p>Enter a bus name, stopage or time to find schedules.</p>
+      </div>
 
 
-      <!-- QUICK SEARCH -->
-      <section id="quick-search" class="quick-section">
+      <div class="search-panel">
 
-        <div class="section-heading">
+        <div class="search-fields">
 
-          <div>
-            <div class="eyebrow">QUICK ACCESS</div>
-            <h2>Explore bus services</h2>
+          <div class="field-group">
+            <label for="busSearch">Bus Name</label>
+            <input
+              type="search"
+              id="busSearch"
+              placeholder="e.g. Srabon, Basanta"
+              autocomplete="off"
+            >
+          </div>
 
-            <p class="section-description">
-              Find useful bus information with one click.
-            </p>
+
+          <div class="field-group">
+            <label for="stopSearch">Stopage Name</label>
+            <input
+              type="search"
+              id="stopSearch"
+              placeholder="e.g. TSC, Nilkhet"
+              autocomplete="off"
+            >
+          </div>
+
+
+          <div class="filters">
+
+            <div class="field-group">
+              <label for="direction">Direction</label>
+
+              <select id="direction">
+                <option value="">All Directions</option>
+                <option value="UP">UP</option>
+                <option value="DOWN">DOWN</option>
+              </select>
+            </div>
+
+
+            <div class="field-group">
+              <label for="timeSearch">Time (Optional)</label>
+
+              <input
+                type="time"
+                id="timeSearch"
+              >
+            </div>
+
           </div>
 
         </div>
 
 
-        <div class="quick-grid">
+        <button type="button" id="searchBtn" class="search-btn">
+          Find buses
+        </button>
 
-          <button class="quick-card" data-mode="stop">
-            <span class="quick-icon">⌕</span>
+        <p class="search-hint">
+          You can search using bus name, stopage name or time.
+        </p>
 
-            <span class="quick-card-content">
-              <b>Buses from a stopage</b>
-              <small>Find buses and departure times</small>
-            </span>
+      </div>
 
-            <span class="card-arrow">→</span>
-          </button>
-
-
-          <button class="quick-card" data-mode="near">
-            <span class="quick-icon">◷</span>
-
-            <span class="quick-card-content">
-              <b>Within 30 minutes</b>
-              <small>See buses around your chosen time</small>
-            </span>
-
-            <span class="card-arrow">→</span>
-          </button>
+    </section>
 
 
-          <button class="quick-card" data-mode="where">
-            <span class="quick-icon">⌖</span>
+    <!-- QUICK SEARCH -->
+    <section class="quick-search-section" id="quick-search">
 
-            <span class="quick-card-content">
-              <b>Where is my bus?</b>
-              <small>Estimate its scheduled position</small>
-            </span>
-
-            <span class="card-arrow">→</span>
-          </button>
+      <div class="section-heading">
+        <span class="section-label">QUICK ACCESS</span>
+        <h2>Explore Buses</h2>
+        <p>Choose a shortcut to explore bus information.</p>
+      </div>
 
 
-          <button class="quick-card" data-mode="direction">
-            <span class="quick-icon">⇅</span>
+      <div class="quick-grid">
 
-            <span class="quick-card-content">
-              <b>Up / Down trips</b>
-              <small>Explore trips by direction</small>
-            </span>
-
-            <span class="card-arrow">→</span>
-          </button>
-
-        </div>
-
-
-        <!-- FAVOURITE BUSES -->
-        <div
-          id="favoriteSection"
-          class="personal-section"
-        ></div>
-
-
-        <!-- RECENT SEARCHES -->
-        <div
-          id="recentSection"
-          class="personal-section"
-        ></div>
-
-      </section>
-
-
-      <!-- RESULTS -->
-      <section id="results-section" class="results-section">
-
-        <div class="results-head">
-
-          <div>
-            <div class="eyebrow">BUS INFORMATION</div>
-
-            <h2 id="resultTitle">Bus results</h2>
-
-            <p class="section-description">
-              Your matching bus schedules will appear here.
-            </p>
-          </div>
-
-          <span id="dataStatus" class="status">
-            Database not connected
+        <button
+          type="button"
+          class="quick-card"
+          data-mode="stop"
+        >
+          <span class="quick-icon">📍</span>
+          <span class="quick-card-content">
+            <strong>Find by Stopage</strong>
+            <small>Search buses at a stopage</small>
           </span>
+        </button>
 
+
+        <button
+          type="button"
+          class="quick-card"
+          data-mode="near"
+        >
+          <span class="quick-icon">🚌</span>
+          <span class="quick-card-content">
+            <strong>Find Buses</strong>
+            <small>Explore available buses</small>
+          </span>
+        </button>
+
+
+        <button
+          type="button"
+          class="quick-card"
+          data-mode="where"
+        >
+          <span class="quick-icon">🔎</span>
+          <span class="quick-card-content">
+            <strong>Where is My Bus?</strong>
+            <small>Search by bus name</small>
+          </span>
+        </button>
+
+
+        <button
+          type="button"
+          class="quick-card"
+          data-mode="direction"
+        >
+          <span class="quick-icon">↔️</span>
+          <span class="quick-card-content">
+            <strong>Explore Direction</strong>
+            <small>Check UP and DOWN routes</small>
+          </span>
+        </button>
+
+      </div>
+
+    </section>
+
+
+    <!-- FAVORITES -->
+    <section class="personal-section" id="favoriteSection">
+
+      <div class="personal-section-heading">
+        <div>
+          <span class="section-label">YOUR COLLECTION</span>
+          <h2>Favourite Buses</h2>
+        </div>
+      </div>
+
+      <div class="personal-chip-list" id="favoriteList"></div>
+
+    </section>
+
+
+    <!-- RECENT SEARCHES -->
+    <section class="personal-section" id="recentSection">
+
+      <div class="personal-section-heading">
+        <div>
+          <span class="section-label">SEARCH HISTORY</span>
+          <h2>Recent Searches</h2>
         </div>
 
+        <button type="button" class="clear-recent" id="clearRecent">
+          Clear
+        </button>
+      </div>
 
-        <div id="results" class="results empty">
+      <div class="personal-chip-list" id="recentList"></div>
 
-          <div class="empty-icon">🚌</div>
+    </section>
 
-          <h3>Your bus information will appear here</h3>
 
-          <p>
-            Connect to the database to load bus schedules.
-            Once saved, you can also search offline.
-          </p>
+    <!-- RESULTS -->
+    <section class="results-section" id="results-section">
 
+      <div class="results-header">
+
+        <div>
+          <span class="section-label">BUS INFORMATION</span>
+          <h2 id="resultTitle">Bus Schedules</h2>
         </div>
 
-      </section>
-
-
-      <!-- ABOUT PROJECT -->
-      <section class="about-section">
-
-        <div class="about-icon">🎓</div>
-
-        <div class="about-content">
-
-          <div class="eyebrow">ABOUT THE PROJECT</div>
-
-          <h2>Making university travel easier.</h2>
-
-          <p>
-            DU BUS FINDER is an independent student information
-            project designed to make Dhaka University bus
-            schedules easier to explore.
-          </p>
-
+        <div id="dataStatus" class="status">
+          Connecting to database...
         </div>
 
-      </section>
+      </div>
+
+
+      <div id="results" class="results-container">
+
+        <div class="empty-state">
+          <span class="empty-icon">🚌</span>
+          <h3>Find Your Bus Schedule</h3>
+          <p>Search for a bus or stopage to see available schedules.</p>
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- INSTALL APP -->
+    <section class="install-section">
+
+      <div class="install-content">
+        <span class="install-icon">📱</span>
+
+        <div>
+          <h2>Use DU Bus Finder Like an App</h2>
+          <p>Install it on your device for quick access.</p>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        id="installBtn"
+        class="install-btn"
+        hidden
+      >
+        Install App
+      </button>
 
     </section>
 
@@ -367,36 +322,29 @@
   <!-- FOOTER -->
   <footer class="site-footer">
 
-    <div class="footer-main">
+    <div class="footer-inner">
 
       <div class="footer-brand">
-        <strong>DU BUS FINDER</strong>
-        <small>University of Dhaka</small>
+        <strong>DU Bus Finder</strong>
+        <p>Making Dhaka University transportation easier.</p>
       </div>
 
-      <p>
-        Independent student information project.
+      <div class="footer-links">
+        <a href="#search-section">Lal Bus</a>
+        <a href="#quick-search">Explore</a>
+        <a href="#results-section">Schedules</a>
+      </div>
+
+      <p class="copyright">
+        © 2026 DU Bus Finder. All rights reserved.
       </p>
-
-    </div>
-
-    <div class="footer-bottom">
-
-      <span>Made for Dhaka University students.</span>
-
-      <span>
-        Always verify schedule changes with the relevant bus group.
-      </span>
 
     </div>
 
   </footer>
 
 
-  <!-- XLSX LIBRARY -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
-  <!-- MAIN JAVASCRIPT -->
+  <!-- JAVASCRIPT -->
   <script src="./app.js"></script>
 
 </body>
