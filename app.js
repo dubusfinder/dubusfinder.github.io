@@ -1049,6 +1049,15 @@ function runSearch() {
   const direction = $("direction")?.value || "";
   const time = $("timeSearch")?.value || "";
 
+  // Direction is only a filter; it cannot be used as the sole search query.
+  if (!bus && !stop && !time) {
+    showEmpty(
+      "Add a search detail",
+      "Select a bus name, enter a stopage/location or choose a time. UP/DOWN direction alone is not enough to show results."
+    );
+    return;
+  }
+
   let rows = scheduleRows.filter(row => {
     const busName = row.bus_name || "";
     const stopName = row.stopage || row.stopage_name || "";
