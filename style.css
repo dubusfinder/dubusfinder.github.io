@@ -1782,3 +1782,126 @@ html[data-theme="dark"] .custom-time-picker select option{background:#19272d;col
   }
   .range-control-column .time-window-btn{font-size:11px!important}
 }
+
+
+/* Global narrow-screen fit: prevent child elements from widening the page */
+@media(max-width:640px){
+  html,body{
+    width:100%;
+    max-width:100%;
+  }
+  body,main,.site-header,.site-footer{
+    min-width:0;
+    max-width:100%;
+  }
+  main>*,
+  .search-section,.quick-search-section,.personal-section,
+  .results-section,.install-section{
+    box-sizing:border-box;
+    min-width:0;
+    max-width:100%;
+  }
+
+  /* Use a two-row header so brand, navigation and install controls never compete
+     for one narrow horizontal line. */
+  .header-inner{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto!important;
+    grid-template-rows:auto auto!important;
+    align-items:center!important;
+    justify-content:initial!important;
+    column-gap:8px!important;
+    row-gap:3px!important;
+    width:calc(100% - 24px)!important;
+    max-width:100%!important;
+    min-width:0!important;
+    min-height:0!important;
+    padding:9px 0 7px!important;
+  }
+  .brand{
+    grid-column:1!important;
+    grid-row:1!important;
+    min-width:0!important;
+    max-width:100%!important;
+    gap:7px!important;
+  }
+  .brand-icon{flex:0 0 34px!important}
+  .brand-text{min-width:0!important}
+  .brand-text strong,.brand-text small{
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .header-actions{
+    grid-column:2!important;
+    grid-row:1!important;
+    min-width:0!important;
+    max-width:100%!important;
+    justify-self:end!important;
+    gap:6px!important;
+  }
+  .main-nav{
+    grid-column:1/-1!important;
+    grid-row:2!important;
+    display:flex!important;
+    justify-content:space-between!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    gap:8px!important;
+    padding-top:2px;
+  }
+  .main-nav a{
+    min-width:0!important;
+    font-size:11px!important;
+    white-space:nowrap!important;
+  }
+
+  .search-panel,.search-fields,.filters,.field-group,
+  .time-picker-layout,.time-control-column,.range-control-column,
+  .quick-grid,.quick-card,.quick-card-content,
+  .results-container,.results,.result-row,.result-row>div:first-child,
+  .personal-section-heading,.personal-chip-list,.install-section,
+  .install-content,.footer-inner,.footer-brand,.footer-links{
+    min-width:0!important;
+    max-width:100%!important;
+  }
+  .search-fields,.filters,.quick-grid{
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+  .quick-card{width:100%!important}
+  .quick-card-content strong,.quick-card-content small,
+  .footer-brand p,.section-heading p{
+    overflow-wrap:anywhere;
+  }
+  .results-header,.personal-section-heading{
+    flex-wrap:wrap;
+  }
+  .status{white-space:normal;overflow-wrap:anywhere}
+  .result-row{flex-wrap:wrap}
+  .result-row>div:first-child{flex:1 1 150px}
+  .result-actions{
+    flex:0 1 auto;
+    max-width:100%;
+    margin-left:auto;
+  }
+  .time{max-width:100%}
+  input,select,button{max-width:100%}
+  img,svg,video,canvas{max-width:100%}
+  .footer-inner{width:calc(100% - 28px)!important}
+}
+@media(max-width:360px){
+  .header-inner{width:calc(100% - 20px)!important}
+  .brand{gap:5px!important}
+  .brand-icon{flex-basis:30px!important;width:30px!important;height:30px!important}
+  .brand-text strong{font-size:10px!important}
+  .brand-text small{font-size:8px!important}
+  .header-actions .install-btn{padding:6px 7px!important;font-size:9px!important}
+  .main-nav{gap:5px!important}
+  .main-nav a{font-size:10px!important}
+  .search-section,.quick-search-section,.personal-section,
+  .results-section,.install-section{
+    width:calc(100% - 20px)!important;
+  }
+  .search-panel{padding:14px!important}
+  .result-row{padding:12px!important}
+}
