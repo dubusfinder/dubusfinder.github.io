@@ -752,3 +752,14 @@ html[data-theme="dark"] .custom-time-picker select option{background:#19272d;col
   .clock-face{width:min(100%,250px)}
   .clock-number{width:32px;height:32px;font-size:12px}
 }
+
+
+/* Final responsive override: show the analog picker on phones and small tablets */
+@media screen and (max-width: 767px) {
+  .time-field-group .exact-time-panel .mobile-clock-picker { display: block !important; }
+  .time-field-group .exact-time-panel .custom-time-picker { display: none !important; }
+}
+@media screen and (min-width: 768px) {
+  .time-field-group .exact-time-panel .mobile-clock-picker { display: none !important; }
+  .time-field-group .exact-time-panel .custom-time-picker { display: flex !important; }
+}
