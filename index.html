@@ -147,35 +147,7 @@
             <div class="field-group">
               <label for="timeSearch">Time (Optional)</label>
 
-              <div class="clock-picker" id="clockPicker">
-                <button type="button" class="clock-trigger" id="clockTrigger" aria-haspopup="dialog" aria-expanded="false">
-                  <span class="clock-trigger-icon" aria-hidden="true">◷</span>
-                  <span id="clockTriggerText">Select time</span>
-                  <span class="clock-trigger-arrow" aria-hidden="true">▾</span>
-                </button>
-                <div class="clock-popover" id="clockPopover" role="dialog" aria-label="Choose bus search time" hidden>
-                  <div class="clock-top">
-                    <div class="clock-digital">
-                      <button type="button" id="clockHourDisplay" class="clock-part active">--</button>
-                      <span>:</span>
-                      <button type="button" id="clockMinuteDisplay" class="clock-part">--</button>
-                    </div>
-                    <div class="clock-period">
-                      <button type="button" data-period="AM" class="active">AM</button>
-                      <button type="button" data-period="PM">PM</button>
-                    </div>
-                  </div>
-                  <div class="clock-step-label" id="clockStepLabel">Select hour</div>
-                  <div class="clock-face" id="clockFace" aria-label="Clock face"></div>
-                  <div class="clock-footer">
-                    <button type="button" id="clockClear" class="clock-text-btn">Clear</button>
-                    <div>
-                      <button type="button" id="clockCancel" class="clock-text-btn">Cancel</button>
-                      <button type="button" id="clockDone" class="clock-done-btn">Done</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <input type="time" id="timeSearch" aria-label="Select time">
               
             </div>
 
