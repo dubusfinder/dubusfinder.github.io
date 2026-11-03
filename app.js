@@ -933,6 +933,7 @@ function updateTimeSearchValue() {
   let hour24 = hour % 12;
   if (selectedTimePeriod === "PM") hour24 += 12;
   $("timeSearch").value = String(hour24).padStart(2, "0") + ":" + minuteValue;
+  updateSearchWindowRange();
 }
 function setTimePeriod(period) {
   selectedTimePeriod = period === "PM" ? "PM" : "AM";
@@ -1122,6 +1123,7 @@ function setTimeWindow(value) {
     button.setAttribute("aria-pressed", String(active));
     button.classList.toggle("active", active);
   });
+  updateSearchWindowRange();
 }
 
 $("timeWindowOptions")?.addEventListener("click", event => {
