@@ -999,7 +999,9 @@ function renderClockFace() {
   const values = clockStep === "hour"
     ? Array.from({length:12}, (_,i) => String(i + 1))
     : Array.from({length:12}, (_,i) => String(i * 5).padStart(2,"0"));
-  clockFace.innerHTML = values.map((value,index) => {
+  const hourAngle = selectedClockHour ? (Number(selectedClockHour) % 12) * 30 : 0;
+  const minuteAngle = selectedClockMinute !== "" ? Number(selectedClockMinute) * 6 : 0;
+  clockFace.innerHTML = `<div class="clock-hand clock-hour-hand" style="--hand-angle:${hourAngle}deg"></div><div class="clock-hand clock-minute-hand" style="--hand-angle:${minuteAngle}deg"></div>` + values.map((value,index) => {
     const active = clockStep === "hour"
       ? Number(selectedClockHour) === Number(value)
       : Number(selectedClockMinute) === Number(value);
