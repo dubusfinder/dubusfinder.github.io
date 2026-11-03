@@ -704,3 +704,13 @@ html[data-theme="dark"] .custom-time-picker select{background:#19272d;color:#f0f
 
 .custom-time-picker select option{background:var(--surface);color:var(--text)}
 html[data-theme="dark"] .custom-time-picker select option{background:#19272d;color:#f0f6f4}
+
+/* Compact H / M time controls and inline search-window preview */
+.custom-time-picker select{flex:0 0 43px;width:43px;appearance:none;-webkit-appearance:none;background-image:none!important;padding:0 2px;font-weight:750}
+.custom-time-picker select::-ms-expand{display:none}
+.time-separator{margin:0 1px}
+.search-window-heading-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0}
+.search-window-range{color:var(--text);font:inherit;font-weight:inherit;white-space:nowrap}
+.search-window-range[hidden]{display:none}
+@media(max-width:640px){.custom-time-picker select{flex-basis:39px;width:39px}.search-window-heading-row{gap:6px}.search-window-range{font-size:inherit}}
+@media(max-width:390px){.custom-time-picker select{flex-basis:36px;width:36px}.search-window-heading-row{gap:4px}.search-window-range{font-size:12px}}
