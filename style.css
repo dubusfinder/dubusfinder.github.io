@@ -1645,3 +1645,140 @@ html[data-theme="dark"] .custom-time-picker select option{background:#19272d;col
     text-align:right!important;
   }
 }
+
+
+/* Responsive time controls: two independent columns at every viewport */
+.time-field-group{width:100%;min-width:0}
+.time-picker-layout{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  align-items:start!important;
+  gap:8px 12px!important;
+  width:100%!important;
+  min-width:0!important;
+}
+.time-control-column,.range-control-column{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  gap:8px!important;
+  width:100%!important;
+  min-width:0!important;
+}
+.time-control-label,.range-control-column .search-window-heading{
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  margin:0!important;
+  color:var(--text)!important;
+  font-size:12px!important;
+  font-weight:800!important;
+  line-height:1.4!important;
+}
+.range-control-column .search-window-heading-group{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  width:100%!important;
+  min-width:0!important;
+  margin:0!important;
+  gap:4px!important;
+}
+.time-control-column .time-entry-row{
+  display:flex!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:none!important;
+  margin:0!important;
+}
+.time-control-column .custom-time-picker{
+  display:flex!important;
+  flex:1 1 auto!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:none!important;
+  height:48px!important;
+  min-height:48px!important;
+  box-sizing:border-box!important;
+  align-items:center!important;
+  gap:2px!important;
+  padding:4px!important;
+}
+.time-control-column .custom-time-picker select{
+  flex:1 1 0!important;
+  width:0!important;
+  min-width:0!important;
+  height:100%!important;
+  padding:0 1px!important;
+  text-align:center!important;
+}
+.time-control-column .custom-time-picker .time-separator{
+  flex:0 0 7px!important;
+  text-align:center!important;
+}
+.time-control-column .custom-time-picker .period-toggle{
+  flex:0 0 36px!important;
+  width:36px!important;
+  min-width:36px!important;
+  height:36px!important;
+  margin:0!important;
+  padding:0!important;
+}
+.range-control-column .time-window-options{
+  display:flex!important;
+  align-items:stretch!important;
+  justify-content:stretch!important;
+  gap:0!important;
+  width:100%!important;
+  min-width:0!important;
+  height:48px!important;
+  min-height:48px!important;
+  box-sizing:border-box!important;
+  padding:4px!important;
+  border:1px solid var(--border)!important;
+  border-radius:var(--radius-sm)!important;
+  background:var(--surface-soft)!important;
+  overflow:hidden!important;
+}
+.range-control-column .time-window-btn{
+  flex:1 1 0!important;
+  width:0!important;
+  min-width:0!important;
+  height:100%!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:0 2px!important;
+  border:0!important;
+  border-radius:7px!important;
+  font-size:12px!important;
+  line-height:1!important;
+}
+.range-control-column .time-window-btn + .time-window-btn{
+  border-left:1px solid var(--border)!important;
+}
+.range-control-column .time-window-btn.active,
+.range-control-column .time-window-btn[aria-pressed="true"]{
+  background:var(--primary)!important;
+  color:#fff!important;
+  border-radius:7px!important;
+}
+@media(max-width:640px){
+  .time-picker-layout{gap:7px 10px!important}
+  .time-control-column .custom-time-picker,
+  .range-control-column .time-window-options{
+    height:46px!important;
+    min-height:46px!important;
+  }
+  .time-control-column .custom-time-picker .period-toggle{height:34px!important}
+}
+@media(max-width:360px){
+  .time-picker-layout{column-gap:7px!important}
+  .time-control-column,.range-control-column{gap:7px!important}
+  .time-control-label,.range-control-column .search-window-heading{font-size:11px!important}
+  .time-control-column .custom-time-picker{padding:3px!important;gap:1px!important}
+  .time-control-column .custom-time-picker .period-toggle{
+    flex-basis:32px!important;width:32px!important;min-width:32px!important;
+    font-size:10px!important;
+  }
+  .range-control-column .time-window-btn{font-size:11px!important}
+}
