@@ -149,9 +149,9 @@
                 <div class="exact-time-panel">
                   <label>Exact Time</label>
                   <div class="custom-time-picker" id="customTimePicker">
-                    <select id="timeHour" aria-label="Hour"><option value="">HH</option></select>
+                    <select id="timeHour" aria-label="Hour"><option value="" selected>H</option></select>
                     <span class="time-separator">:</span>
-                    <select id="timeMinute" aria-label="Minute"><option value="">MM</option></select>
+                    <select id="timeMinute" aria-label="Minute"><option value="" selected>M</option></select>
                     <div class="time-period" role="group" aria-label="AM or PM">
                       <button type="button" class="period-btn active" data-period="AM" aria-pressed="true">AM</button>
                       <button type="button" class="period-btn" data-period="PM" aria-pressed="false">PM</button>
@@ -160,7 +160,7 @@
                   <input type="hidden" id="timeSearch" value="">
                 </div>
                 <div class="search-window-panel">
-                  <span class="search-window-heading">Search Window</span>
+                  <div class="search-window-heading-row"><span class="search-window-heading">Search Window</span><span class="search-window-range" id="searchWindowRange" aria-live="polite" hidden></span></div>
                   <div class="time-window-options" id="timeWindowOptions" role="group" aria-label="Search window">
                     <button type="button" class="time-window-btn" data-window="15" aria-pressed="false">±15</button>
                     <button type="button" class="time-window-btn" data-window="30" aria-pressed="false">±30</button>
