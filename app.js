@@ -1050,7 +1050,7 @@ function syncClockPickerFromValue(value) {
   syncClockDisplay();
 }
 function closeClockPicker() {
-  /* The mobile analog clock stays visible; closing only resets the trigger state. */
+  if (clockPopover) clockPopover.hidden = true;
   clockTrigger?.setAttribute("aria-expanded","false");
 }
 function openClockPicker() {
