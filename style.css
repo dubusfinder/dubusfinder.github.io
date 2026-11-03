@@ -744,3 +744,10 @@ html[data-theme="dark"] .custom-time-picker select option{background:#19272d;col
   .custom-time-picker select{flex-basis:36px;width:36px;font-size:12px}
   .period-btn{min-width:27px;padding-inline:3px;font-size:10px}
 }
+
+/* Single 24-hour digital time picker */
+.custom-time-picker{display:flex!important;align-items:center;gap:0!important;width:100%;height:48px;min-width:0;padding:4px!important;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface-soft)}
+.custom-time-picker select{flex:0 0 54px!important;width:54px!important;height:100%;padding:0!important;border:0!important;border-radius:7px;background:var(--surface)!important;background-image:none!important;color:var(--text)!important;font:700 16px inherit;text-align:center;text-align-last:center;appearance:none!important;-webkit-appearance:none!important;-moz-appearance:none!important;cursor:pointer}
+.custom-time-picker select::-ms-expand{display:none!important}
+.time-separator{padding:0 3px;color:var(--text);font-size:17px;font-weight:800}
+@media(max-width:640px){.custom-time-picker{height:46px}.custom-time-picker select{flex-basis:54px!important;width:54px!important;font-size:15px}}
