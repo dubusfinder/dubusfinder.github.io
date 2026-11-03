@@ -949,7 +949,7 @@ function syncTimePickerFromValue(value) {
     $("timeHour").value = ""; $("timeMinute").value = ""; $("timeSearch").value = "";
     setTimePeriod("AM"); return;
   }
-  const match = String(value).match(/^(\d{1,2}):(\d{2})$/);
+    const match = String(value).match(/^(\d{2}):(\d{2})$/);
   if (!match) return;
   const hour24 = Number(match[1]);
   $("timeHour").value = String(hour24 % 12 || 12);
