@@ -691,7 +691,7 @@ html[data-theme="dark"] .exact-time-panel input[type="time"]{color-scheme:dark}
 
 /* Theme-matched custom 12-hour time picker */
 .custom-time-picker{display:flex;align-items:center;gap:5px;width:100%;min-width:0;height:48px;box-sizing:border-box;padding:5px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface-soft)}
-.custom-time-picker select{min-width:0;height:100%;flex:1 1 0;padding:0 5px;border:1px solid transparent;border-radius:7px;outline:none;background:var(--surface);color:var(--text);color-scheme:light;font:600 14px/1 inherit;text-align:center;cursor:pointer}
+.custom-time-picker select{min-width:0;height:100%;flex:1 1 0;padding:0 5px;border:1px solid transparent;border-radius:7px;outline:none;background:var(--surface);color:var(--text);color-scheme:light;font-family:inherit;font-size:14px;font-weight:600;line-height:1;text-align:center;cursor:pointer}
 html[data-theme="dark"] .custom-time-picker select{background:#19272d;color:#f0f6f4;color-scheme:dark}
 .custom-time-picker select:focus-visible{border-color:var(--primary);box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 22%,transparent)}
 .time-separator{flex:0 0 auto;color:var(--muted);font-weight:900}
@@ -701,3 +701,6 @@ html[data-theme="dark"] .custom-time-picker select{background:#19272d;color:#f0f
 .period-btn:focus-visible{outline:2px solid var(--primary);outline-offset:1px}
 @media(max-width:640px){.custom-time-picker{height:46px;gap:4px;padding:4px}.custom-time-picker select{font-size:13px;padding-inline:3px}.period-btn{min-width:29px;padding-inline:4px;font-size:10px}}
 @media(max-width:390px){.custom-time-picker{gap:3px;padding:3px}.custom-time-picker select{font-size:12px;padding-inline:2px}.period-btn{min-width:27px;padding-inline:3px;font-size:10px}}
+
+.custom-time-picker select option{background:var(--surface);color:var(--text)}
+html[data-theme="dark"] .custom-time-picker select option{background:#19272d;color:#f0f6f4}
