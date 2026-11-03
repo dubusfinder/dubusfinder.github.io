@@ -1074,6 +1074,12 @@ $("clockClear")?.addEventListener("click", () => {
   selectedClockMinute = "";
   selectedClockPeriod = "AM";
   clockStep = "hour";
+  $("timeSearch").value = "";
+  if ($("timeHour")) $("timeHour").value = "";
+  if ($("timeMinute")) $("timeMinute").value = "";
+  selectedTimePeriod = "AM";
+  updateSearchWindowRange();
+  if (clockTriggerText) clockTriggerText.textContent = "Select time";
   syncClockDisplay();
 });
 $("clockCancel")?.addEventListener("click", () => {
