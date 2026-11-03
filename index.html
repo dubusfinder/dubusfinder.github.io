@@ -67,7 +67,7 @@
 
         <h1>
           Find Your Bus,<br>
-          <span>Reach Your Destination.</span>
+          <span>Make Every Journey Easier.</span>
         </h1>
 
         <p>
@@ -127,11 +127,20 @@
             <div class="field-group">
               <label for="direction">Direction</label>
 
-              <select id="direction">
-                <option value="">All Directions</option>
-                <option value="UP">UP</option>
-                <option value="DOWN">DOWN</option>
-              </select>
+              <div class="direction-picker" id="directionPicker">
+                <select id="direction" class="direction-native-select" aria-hidden="true" tabindex="-1">
+                  <option value="UP" selected>UP</option>
+                  <option value="DOWN">DOWN</option>
+                </select>
+                <div class="direction-control">
+                  <button type="button" class="direction-current" id="directionCurrent" aria-haspopup="true" aria-expanded="false">UP <span>⌄</span></button>
+                  <button type="button" class="direction-switch" id="directionSwitch" aria-label="Switch direction" title="Switch UP and DOWN">⇄</button>
+                </div>
+                <div class="direction-options" id="directionOptions" hidden>
+                  <button type="button" data-direction="UP">UP</button>
+                  <button type="button" data-direction="DOWN">DOWN</button>
+                </div>
+              </div>
             </div>
 
 
@@ -324,6 +333,30 @@
 
   <!-- JAVASCRIPT -->
   <script src="./app.js"></script>
+  <script>
+    (() => {
+      const select = document.getElementById("direction");
+      const current = document.getElementById("directionCurrent");
+      const switcher = document.getElementById("directionSwitch");
+      const options = document.getElementById("directionOptions");
+      const picker = document.getElementById("directionPicker");
+      if (!select || !current || !switcher || !options || !picker) return;
+      const paint = () => { current.innerHTML = select.value + ' <span>⌄</span>'; };
+      const close = () => { options.hidden = true; current.setAttribute("aria-expanded", "false"); };
+      const choose = value => { select.value = value; paint(); close(); };
+      current.addEventListener("click", () => {
+        options.hidden = !options.hidden;
+        current.setAttribute("aria-expanded", String(!options.hidden));
+      });
+      switcher.addEventListener("click", () => choose(select.value === "UP" ? "DOWN" : "UP"));
+      options.querySelectorAll("[data-direction]").forEach(button => {
+        button.addEventListener("click", () => choose(button.dataset.direction));
+      });
+      document.addEventListener("click", event => { if (!picker.contains(event.target)) close(); });
+      paint();
+    })();
+  </script>
+
 
 </body>
 </html>
