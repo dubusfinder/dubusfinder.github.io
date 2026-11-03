@@ -597,57 +597,94 @@ html[data-theme="dark"] .field-group input[type="time"]{color-scheme:dark}
   }
 }
 
-/* === Time picker + optional search-window controls === */
-.time-field-group{min-width:0}
-.time-field-heading{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
+/* === Split exact-time and search-window control === */
+.time-field-group{min-width:0;width:100%}
+.time-picker-layout{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);
+  align-items:end;
   gap:10px;
-  margin-bottom:8px;
+  width:100%;
+  min-width:0;
 }
-.time-field-heading label{margin:0}
+.exact-time-panel,.search-window-panel{min-width:0}
+.exact-time-panel label{
+  display:block;
+  margin:0 0 8px;
+  color:var(--text);
+  font-size:13px;
+  font-weight:800;
+}
+.exact-time-panel input[type="time"]{
+  display:block;
+  box-sizing:border-box;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  height:48px;
+  margin:0;
+  padding:0 9px;
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  background:var(--surface-soft);
+  color:var(--text);
+  font-family:inherit;
+  font-size:16px;
+  color-scheme:light;
+}
+html[data-theme="dark"] .exact-time-panel input[type="time"]{color-scheme:dark}
+.exact-time-panel input[type="time"]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.8}
 .search-window-heading{
+  display:block;
+  margin:0 0 8px;
   color:var(--muted);
-  font-size:11px;
+  font-size:13px;
   font-weight:800;
   white-space:nowrap;
 }
 .time-window-options{
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:7px;
-  margin-top:9px;
+  gap:6px;
+  min-width:0;
 }
 .time-window-btn{
+  box-sizing:border-box;
   min-width:0;
-  min-height:37px;
-  padding:7px 5px;
+  min-height:48px;
+  padding:7px 3px;
   border:1px solid var(--border);
   border-radius:10px;
   background:var(--surface-soft);
   color:var(--text);
   font-size:12px;
-  font-weight:800;
+  font-weight:850;
+  white-space:nowrap;
   cursor:pointer;
   transition:background .18s,border-color .18s,color .18s;
 }
 .time-window-btn:hover{border-color:var(--primary)}
-.time-window-btn.active,
-.time-window-btn[aria-pressed="true"]{
+.time-window-btn.active,.time-window-btn[aria-pressed="true"]{
   border-color:var(--primary);
   background:var(--primary);
   color:#fff;
 }
 .time-window-btn:focus-visible{outline:3px solid color-mix(in srgb,var(--primary) 35%,transparent);outline-offset:2px}
 @media(max-width:640px){
-  .time-field-heading{gap:8px}
-  .search-window-heading{font-size:11px}
-  .time-window-options{gap:8px;margin-top:10px}
-  .time-window-btn{min-height:42px;font-size:13px}
+  .time-picker-layout{
+    grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);
+    gap:9px;
+  }
+  .exact-time-panel label,.search-window-heading{font-size:12px}
+  .exact-time-panel input[type="time"],.time-window-btn{height:46px;min-height:46px}
+  .exact-time-panel input[type="time"]{padding-inline:7px;font-size:16px}
+  .time-window-options{gap:5px}
+  .time-window-btn{padding:6px 2px;font-size:11px}
 }
 @media(max-width:390px){
-  .time-window-options{gap:6px}
-  .time-window-btn{padding:7px 3px;font-size:12px}
+  .time-picker-layout{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:7px}
+  .exact-time-panel label,.search-window-heading{font-size:11px}
+  .exact-time-panel input[type="time"]{padding-inline:5px}
+  .time-window-options{gap:4px}
+  .time-window-btn{font-size:10px}
 }
-
