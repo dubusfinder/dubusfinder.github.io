@@ -1063,7 +1063,16 @@ function runSearch() {
     const stopName = row.stopage || row.stopage_name || "";
 
     const busMatch = !bus || getMatchScore(bus, busName) > 0;
-    const stopMatch = !stop || getMatchScore(stop, stopName) > 0;
+    const stopCandidates = [
+      row.stopage,
+      row.stopage_name,
+      row.stop_name,
+      row.stop
+    ].filter(Boolean);
+    const stopMatch = !stop || stopCandidates.some(name =>
+      getMatchScore(stop, name) > 0 ||
+      searchNormalize(name).includes(searchNormalize(stop))
+    );
     const directionMatch = directionMatches(row.direction, direction);
 
     return busMatch && stopMatch && directionMatch;
@@ -1239,6 +1248,81 @@ window.addEventListener("error", event => {
 
 window.addEventListener("unhandledrejection", event => {
   console.error("Unhandled promise rejection:", event.reason);
+});
+
+/* =========================================
+   SEARCH + DIRECTION CONTROL EVENTS
+========================================= */
+
+function setDirection(value) {
+  const selected = value === "DOWN" ? "DOWN" : "UP";
+  const nativeSelect = $("direction");
+  const currentButton = $("directionCurrent");
+  const options = $("directionOptions");
+
+  if (nativeSelect) nativeSelect.value = selected;
+  if (currentButton) {
+    currentButton.textContent = selected;
+    currentButton.setAttribute("aria-expanded", "false");
+  }
+  if (options) options.hidden = true;
+}
+
+function toggleDirectionOptions(forceOpen) {
+  const options = $("directionOptions");
+  const currentButton = $("directionCurrent");
+  if (!options || !currentButton) return;
+
+  const shouldOpen = typeof forceOpen === "boolean"
+    ? forceOpen
+    : options.hidden;
+
+  options.hidden = !shouldOpen;
+  currentButton.setAttribute("aria-expanded", String(shouldOpen));
+}
+
+$("directionCurrent")?.addEventListener("click", event => {
+  event.preventDefault();
+  event.stopPropagation();
+  toggleDirectionOptions();
+});
+
+$("directionOptions")?.querySelectorAll("[data-direction]").forEach(button => {
+  button.addEventListener("click", event => {
+    event.preventDefault();
+    event.stopPropagation();
+    setDirection(button.dataset.direction);
+  });
+});
+
+$("directionSwitch")?.addEventListener("click", event => {
+  event.preventDefault();
+  event.stopPropagation();
+
+  const current = $("direction")?.value || "UP";
+  setDirection(current === "UP" ? "DOWN" : "UP");
+});
+
+$("direction")?.addEventListener("change", event => {
+  setDirection(event.target.value);
+});
+
+document.addEventListener("click", event => {
+  const picker = $("directionPicker");
+  if (picker && !picker.contains(event.target)) {
+    toggleDirectionOptions(false);
+  }
+});
+
+$("searchBtn")?.addEventListener("click", runSearch);
+
+["busSearch", "stopSearch", "timeSearch"].forEach(id => {
+  $(id)?.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      runSearch();
+    }
+  });
 });
 
 /* =========================================
