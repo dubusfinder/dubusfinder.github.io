@@ -2138,6 +2138,9 @@ main{
   .main-nav.is-open{
     display:flex!important;
   }
+  .main-nav a:nth-child(1){order:0!important}
+  .main-nav a:nth-child(3){order:1!important}
+  .main-nav a:nth-child(2){order:2!important}
   .main-nav a{
     display:block!important;
     width:100%!important;
