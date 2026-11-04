@@ -2239,3 +2239,9 @@ main{
   .contribution-map{height:205px}
   .contribution-panel{padding:13px}
 }
+
+.bus-directory-toolbar{position:relative}
+.bus-directory-suggestions{position:absolute;z-index:40;left:0;top:calc(100% + 7px);width:min(460px,100%);max-height:320px;overflow:auto;padding:6px;border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:var(--shadow-lg)}
+.bus-directory-suggestions button{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border:0;border-radius:8px;background:transparent;color:var(--text);text-align:left;cursor:pointer}
+.bus-directory-suggestions button:hover,.bus-directory-suggestions button:focus-visible{background:var(--primary-soft);outline:none}
+.bus-directory-suggestions small{color:var(--muted);font-size:11px}
