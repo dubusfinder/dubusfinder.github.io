@@ -1932,3 +1932,173 @@ function adminReview_(id, isBatch, decision, note, edits) {
     lock.releaseLock();
   }
 }
+
+
+/* =========================================
+   13. COPY-ONLY STOP ID MIGRATION
+   Never edits the original BusSchedule sheet.
+========================================= */
+
+function adminNormalizeStopName_(value) {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[.,;:()\-–—]/g, "")
+    .replace(/\s+/g, " ");
+}
+
+function buildStopIdMigrationPlan_() {
+  const schedule = adminLoadTable_(SHEETS.schedule);
+  const stops = adminLoadTable_(SHEETS.stops);
+
+  const scheduleStopIdIndex = adminCol_(schedule, "stop_id");
+  const scheduleNameIndex = adminCol_(schedule, "stopage");
+  const stopIdIndex = adminCol_(stops, "stop_id");
+  const stopNameIndex = adminCol_(stops, "stopage_name");
+
+  const stopLookup = new Map();
+  stops.values.forEach(row => {
+    const name = adminNormalizeStopName_(row[stopNameIndex]);
+    const id = String(row[stopIdIndex] || "").trim();
+    if (!name || !id) return;
+    if (!stopLookup.has(name)) stopLookup.set(name, []);
+    stopLookup.get(name).push(id);
+  });
+
+  const plan = {
+    schedule,
+    stopIdColumn: scheduleStopIdIndex + 1,
+    updates: [],
+    alreadyLinked: 0,
+    unknown: 0,
+    unmatched: 0,
+    ambiguous: 0
+  };
+
+  schedule.values.forEach((row, index) => {
+    const currentId = String(row[scheduleStopIdIndex] || "").trim();
+    const name = String(row[scheduleNameIndex] || "").trim();
+
+    if (currentId) {
+      plan.alreadyLinked++;
+      return;
+    }
+
+    if (!name || name.toUpperCase() === "UNKNOWN") {
+      plan.unknown++;
+      return;
+    }
+
+    const candidates = stopLookup.get(adminNormalizeStopName_(name)) || [];
+    const uniqueIds = [...new Set(candidates)];
+
+    if (uniqueIds.length === 1) {
+      plan.updates.push({
+        rowNumber: index + 2,
+        stopId: uniqueIds[0]
+      });
+    } else if (uniqueIds.length > 1) {
+      plan.ambiguous++;
+    } else {
+      plan.unmatched++;
+    }
+  });
+
+  return plan;
+}
+
+function adminPreviewStopIdMigration() {
+  const adminEmail = getAdminIdentity_();
+  const plan = buildStopIdMigrationPlan_();
+
+  return {
+    success: true,
+    admin_email: adminEmail,
+    original_sheet: SHEETS.schedule,
+    original_modified: false,
+    rows_with_unique_candidate: plan.updates.length,
+    already_linked: plan.alreadyLinked,
+    unknown_or_blank_name: plan.unknown,
+    unmatched: plan.unmatched,
+    ambiguous: plan.ambiguous,
+    action: "PREVIEW_ONLY"
+  };
+}
+
+function adminCreateStopIdMigrationCopy() {
+  const adminEmail = getAdminIdentity_();
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+
+  let copy = null;
+
+  try {
+    const plan = buildStopIdMigrationPlan_();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const stamp = Utilities.formatDate(
+      new Date(),
+      ss.getSpreadsheetTimeZone(),
+      "yyyyMMdd_HHmmss"
+    );
+
+    let name = "BusSchedule_Migration_" + stamp;
+    let suffix = 1;
+    while (ss.getSheetByName(name)) {
+      name = "BusSchedule_Migration_" + stamp + "_" + suffix;
+      suffix++;
+    }
+
+    copy = plan.schedule.sheet.copyTo(ss);
+    copy.setName(name);
+
+    if (plan.schedule.values.length && plan.updates.length) {
+      const idValues = copy.getRange(
+        2,
+        plan.stopIdColumn,
+        plan.schedule.values.length,
+        1
+      ).getValues();
+
+      plan.updates.forEach(update => {
+        idValues[update.rowNumber - 2][0] = update.stopId;
+      });
+
+      // Only the stop_id column in the copied sheet is updated.
+      copy.getRange(
+        2,
+        plan.stopIdColumn,
+        idValues.length,
+        1
+      ).setValues(idValues);
+    }
+
+    return {
+      success: true,
+      admin_email: adminEmail,
+      original_sheet: SHEETS.schedule,
+      original_modified: false,
+      copy_sheet: name,
+      rows_with_unique_candidate: plan.updates.length,
+      already_linked: plan.alreadyLinked,
+      unknown_or_blank_name: plan.unknown,
+      unmatched: plan.unmatched,
+      ambiguous: plan.ambiguous
+    };
+
+  } catch (error) {
+    if (copy) {
+      try {
+        SpreadsheetApp.getActiveSpreadsheet().deleteSheet(copy);
+      } catch (cleanupError) {
+        throw new Error(
+          "Migration copy failed: " + error.message +
+          ". Temporary copy cleanup failed: " + cleanupError.message
+        );
+      }
+    }
+    throw error;
+
+  } finally {
+    lock.releaseLock();
+  }
+}
