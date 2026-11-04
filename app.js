@@ -708,6 +708,55 @@ function renderBusDirectory(filterText = "") {
   });
 }
 
+function renderBusDirectorySuggestions(filterText = "") {
+  const dropdown = $("busDirectorySuggestions");
+  const input = $("busDirectorySearch");
+  if (!dropdown || !input) return;
+
+  const query = String(filterText || "").trim();
+  if (!query || !databaseLoaded) {
+    dropdown.hidden = true;
+    input.setAttribute("aria-expanded", "false");
+    return;
+  }
+
+  const directory = busRows
+    .map(bus => String(bus.bus_name || bus.name || "").trim())
+    .filter(Boolean)
+    .filter((name, index, all) =>
+      all.findIndex(item => normalize(item) === normalize(name)) === index
+    );
+
+  const matches = directory
+    .map(name => ({ name, score: getMatchScore(query, name) }))
+    .filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+    .slice(0, 8);
+
+  dropdown.innerHTML = matches.length
+    ? matches.map(item => `
+        <button type="button" data-bus-suggestion="${escapeHtml(item.name)}">
+          <strong>${escapeHtml(item.name)}</strong>
+          <small>Open bus details →</small>
+        </button>
+      `).join("")
+    : '<div class="bus-directory-empty">No matching bus found.</div>';
+
+  dropdown.hidden = false;
+  input.setAttribute("aria-expanded", "true");
+
+  dropdown.querySelectorAll("[data-bus-suggestion]").forEach(button => {
+    button.addEventListener("click", () => {
+      const name = button.dataset.busSuggestion;
+      input.value = "";
+      dropdown.hidden = true;
+      input.setAttribute("aria-expanded", "false");
+      renderBusDirectory("");
+      openBusDetails(name);
+    });
+  });
+}
+
 function openBusDetails(busName) {
   const directoryView = $("busDirectoryView");
   const detailsView = $("busDetailsView");
@@ -717,6 +766,10 @@ function openBusDetails(busName) {
   const bus = busRows.find(item =>
     normalize(item.bus_name || item.name) === normalize(busName)
   ) || { bus_name: busName };
+
+  const suggestions = $("busDirectorySuggestions");
+  if (suggestions) suggestions.hidden = true;
+  $("busDirectorySearch")?.setAttribute("aria-expanded", "false");
 
   const imageUrl = safeBusImageUrl(bus.bus_image_url);
   const trips = getBusTripGroups(busName);
@@ -806,7 +859,25 @@ function openBusDetails(busName) {
 }
 
 $("busDirectorySearch")?.addEventListener("input", event => {
-  renderBusDirectory(event.target.value.trim());
+  const query = event.target.value.trim();
+  renderBusDirectory(query);
+  renderBusDirectorySuggestions(query);
+});
+
+$("busDirectorySearch")?.addEventListener("keydown", event => {
+  if (event.key === "Escape") {
+    const dropdown = $("busDirectorySuggestions");
+    if (dropdown) dropdown.hidden = true;
+    event.target.setAttribute("aria-expanded", "false");
+  }
+});
+
+document.addEventListener("click", event => {
+  if (event.target.closest(".bus-directory-toolbar")) return;
+  const dropdown = $("busDirectorySuggestions");
+  const input = $("busDirectorySearch");
+  if (dropdown) dropdown.hidden = true;
+  if (input) input.setAttribute("aria-expanded", "false");
 });
 
 document.querySelector("[data-open-bus-directory]")?.addEventListener("click", () => {
