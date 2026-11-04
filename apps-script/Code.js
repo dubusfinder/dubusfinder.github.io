@@ -750,6 +750,19 @@ function adminTimeToSheetValue_(value) {
 }
 
 
+function adminTimesEqual_(a, b) {
+  const aEmpty = a === "" || a == null;
+  const bEmpty = b === "" || b == null;
+
+  if (aEmpty || bEmpty) return aEmpty && bEmpty;
+
+  const aValue = adminTimeToSheetValue_(a);
+  const bValue = adminTimeToSheetValue_(b);
+
+  return Math.abs(aValue - bValue) < (0.5 / 86400);
+}
+
+
 function adminPut_(table, row, name, value) {
   const index = adminCol_(table, name);
 
@@ -1463,440 +1476,6 @@ function adminReview_(id, isBatch, decision, note) {
     }
 
     const contributions = selected.map(item => {
-
-      const obj = {};
-
-      table.headers.forEach((header, index) => {
-        obj[header] = item.values[index];
-      });
-
-      obj._rowNumber = item.rowNumber;
-
-      return obj;
-    });
-
-    let applyResult = null;
-
-    if (decision === "APPROVE") {
-      applyResult = adminApplyApproved_(contributions);
-    }
-
-    const now = new Date().toISOString();
-
-    contributions.forEach(c => {
-
-      const rowNumber = c._rowNumber;
-
-      table.sheet.getRange(
-        rowNumber,
-        adminCol_(table, "status") + 1
-      ).setValue(
-        decision === "APPROVE" ? "Approved" : "Rejected"
-      );
-
-      table.sheet.getRange(
-        rowNumber,
-        adminCol_(table, "reviewed_at") + 1
-      ).setValue(now);
-
-      table.sheet.getRange(
-        rowNumber,
-        adminCol_(table, "reviewed_by") + 1
-      ).setValue(adminEmail);
-
-      table.sheet.getRange(
-        rowNumber,
-        adminCol_(table, "admin_note") + 1
-      ).setValue(note || "");
-
-      adminWriteLog_(
-        c.contribution_id,
-        decision,
-        adminEmail,
-        note
-      );
-    });
-
-    return {
-      success: true,
-      decision: decision,
-      reviewed_count: contributions.length,
-      reviewed_by: adminEmail,
-      apply_result: applyResult
-    };
-
-  } catch (error) {
-
-    /*
-     * Restore previous data if anything fails.
-     */
-
-    const rollbackErrors = [];
-
-    for (let i = snapshots.length - 1; i >= 0; i--) {
-
-      try {
-        adminRestoreSnapshot_(snapshots[i]);
-
-      } catch (restoreError) {
-        rollbackErrors.push(
-          snapshots[i].name + ": " + restoreError.message
-        );
-      }
-    }
-
-    if (rollbackErrors.length) {
-      throw new Error(
-        "Approval failed: " + error.message +
-        ". Rollback was incomplete: " +
-        rollbackErrors.join(" | ")
-      );
-    }
-
-    throw new Error(
-      "Approval failed. Previous sheet data was restored. Reason: " +
-      error.message
-    );
-
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-
-/* =========================================
-   13. ADMIN REVIEW FUNCTIONS
-========================================= */
-
-function adminReviewContribution(contributionId, decision, note) {
-
-  return adminReview_(
-    contributionId,
-    false,
-    decision,
-    note
-  );
-}
-
-function adminReviewBatch(batchId, decision, note) {
-
-  return adminReview_(
-    batchId,
-    true,
-    decision,
-    note
-  );
-}
-
-
-/* =========================================
-   14. DATABASE READINESS TEST
-   READ ONLY
-========================================= */
-
-function testAdminApprovalReadiness() {
-
-  const adminEmail = getAdminIdentity_();
-
-  const checks = {
-
-    Buses: [
-      "bus_id",
-      "bus_name"
-    ],
-
-    Stops: [
-      "stop_id",
-      "stopage_name",
-      "latitude",
-      "longitude"
-    ],
-
-    BusSchedule: [
-      "bus_name",
-      "direction",
-      "trip_time",
-      "stopage_time",
-      "stopage",
-      "sequence",
-      "verification_status",
-      "trip_id",
-      "stop_id"
-    ],
-
-    Contributions: [
-      "contribution_id",
-      "batch_id",
-      "submitted_at",
-      "email",
-      "bus_id",
-      "direction",
-      "trip_time",
-      "contribution_type",
-      "stop_id",
-      "stopage_name",
-      "stopage_time",
-      "latitude",
-      "longitude",
-      "status",
-      "admin_note",
-      "reviewed_at",
-      "reviewed_by",
-      "operation",
-      "trip_id",
-      "target_sequence",
-      "sequence"
-    ],
-
-    AdminLog: [
-      "log_id",
-      "contribution_id",
-      "action",
-      "admin",
-      "timestamp",
-      "note"
-    ]
-  };
-
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const results = [];
-
-  Object.keys(checks).forEach(sheetName => {
-
-    const sheet = ss.getSheetByName(sheetName);
-
-    if (!sheet) {
-      results.push({
-        sheet: sheetName,
-        success: false,
-        error: "Sheet not found"
-      });
-
-      return;
-    }
-
-    const lastColumn = sheet.getLastColumn();
-
-    if (lastColumn < 1) {
-      results.push({
-        sheet: sheetName,
-        success: false,
-        error: "Header row is empty"
-      });
-
-      return;
-    }
-
-    const headers = sheet
-      .getRange(1, 1, 1, lastColumn)
-      .getDisplayValues()[0]
-      .map(h => String(h).trim());
-
-    const missing = checks[sheetName].filter(
-      name => !headers.includes(name)
-    );
-
-    results.push({
-      sheet: sheetName,
-      success: missing.length === 0,
-      missing_headers: missing
-    });
-  });
-
-  const passed = results.every(item => item.success);
-
-  const result = {
-    success: passed,
-    admin_email: adminEmail,
-    results: results
-  };
-
-  Logger.log(JSON.stringify(result, null, 2));
-
-  if (!passed) {
-    throw new Error(
-      "Readiness check failed. See Execution log."
-    );
-  }
-
-  return result;
-}
-
-
-function createAdminTestContribution() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet()
-    .getSheetByName("Contributions");
-
-  if (!sheet) {
-    throw new Error("Contributions sheet not found.");
-  }
-
-  const headers = sheet.getRange(
-    1, 1, 1, sheet.getLastColumn()
-  ).getDisplayValues()[0].map(h => h.trim());
-
-  const testId = "TEST-" + Utilities.getUuid();
-
-  const record = {
-    contribution_id: testId,
-    batch_id: testId,
-    submitted_at: new Date().toISOString(),
-    email: "test@example.com",
-    bus_id: "TEST",
-    direction: "UP",
-    trip_time: "12:00 AM",
-    contribution_type: "TEST",
-    stop_id: "",
-    stopage_name: "ADMIN TEST - DELETE ME",
-    stopage_time: "12:00 AM",
-    latitude: "",
-    longitude: "",
-    status: "Pending",
-    admin_note: "",
-    reviewed_at: "",
-    reviewed_by: "",
-    operation: "ADD",
-    trip_id: "TEST-TRIP",
-    target_sequence: "",
-    sequence: 1
-  };
-
-  const row = headers.map(h =>
-    Object.prototype.hasOwnProperty.call(record, h)
-      ? record[h]
-      : ""
-  );
-
-  sheet.appendRow(row);
-
-  Logger.log("TEST CONTRIBUTION ID: " + testId);
-}
-
-function testAdminReject() {
-  const result = adminReviewContribution(
-    "TEST-9601f2dc-4c2f-4b93-8dc5-334eacc17a3d",
-    "REJECT",
-    "Test rejection - Admin system verification"
-  );
-
-  Logger.log(JSON.stringify(result, null, 2));
-}
-
-function testAdminPostEndpoint() {
-  const payload = {
-    action: "admin_review",
-    id: "TEST-1fdb21b5-b295-4135-ab1c-f78d403fdf96",
-    decision: "REJECT",
-    is_batch: false,
-    note: "Admin POST endpoint test"
-  };
-
-  const response = UrlFetchApp.fetch(
-    "https://script.google.com/macros/s/AKfycbx6QLWoGsMckxiMEQrME8pj35oDp-7HDbP0bcTKkHq7lE2XqwK1SHEs0N6QDj6-gTNa9w/exec",
-    {
-      method: "post",
-      payload: {
-        payload: JSON.stringify(payload)
-      },
-      followRedirects: true,
-      muteHttpExceptions: true
-    }
-  );
-
-  Logger.log("HTTP STATUS: " + response.getResponseCode());
-  Logger.log("RESPONSE: " + response.getContentText());
-}
-function testAdminDoPostHandler() {
-  const payload = {
-    action: "admin_review",
-    id: "TEST-1fdb21b5-b295-4135-ab1c-f78d403fdf96",
-    decision: "REJECT",
-    is_batch: false,
-    note: "Admin doPost handler test"
-  };
-
-  const result = doPost({
-    parameter: {
-      payload: JSON.stringify(payload)
-    }
-  });
-
-  Logger.log(result.getContent());
-}
-
-function getAdminDashboardData() {
-  return getAdminPendingContributions_();
-}
-
-
-function adminEditApplyBatch(batchId, edits, note) {
-
-  const adminEmail = getAdminIdentity_();
-  batchId = String(batchId || "").trim();
-
-  if (!batchId) throw new Error("Batch ID is required.");
-  if (!Array.isArray(edits) || !edits.length) {
-    throw new Error("No edited contributions supplied.");
-  }
-
-  const lock = LockService.getScriptLock();
-  lock.waitLock(20000);
-
-  let snapshots = [];
-
-  try {
-    const sheetNames = [
-      "Stops",
-      "BusSchedule",
-      CONTRIBUTION_CONFIG.SHEET_NAME,
-      "AdminLog"
-    ];
-
-    snapshots = sheetNames.map(name => adminTakeSnapshot_(name));
-
-    const table = adminLoadTable_(CONTRIBUTION_CONFIG.SHEET_NAME);
-    const batchIndex = adminCol_(table, "batch_id");
-    const statusIndex = adminCol_(table, "status");
-
-    const selected = [];
-
-    table.values.forEach((row, index) => {
-      const sameBatch =
-        String(row[batchIndex]).trim() === batchId;
-
-      const pending =
-        String(row[statusIndex]).trim().toLowerCase() === "pending";
-
-      if (sameBatch && pending) {
-        selected.push({
-          rowNumber: index + 2,
-          values: row
-        });
-      }
-    });
-
-    if (!selected.length) {
-      throw new Error("No Pending Contributions found for this batch.");
-    }
-
-    const editMap = new Map();
-
-    edits.forEach(edit => {
-      const id = String(edit.contribution_id || "").trim();
-
-      if (!id) throw new Error("An edited contribution has no ID.");
-      if (editMap.has(id)) {
-        throw new Error("Duplicate contribution edit: " + id);
-      }
-
-      editMap.set(id, edit);
-    });
-
-    if (editMap.size !== selected.length) {
-      throw new Error("Every Pending Contribution must be included.");
-    }
-
-    const contributions = selected.map(item => {
       const c = {};
 
       table.headers.forEach((header, index) => {
@@ -1904,6 +1483,7 @@ function adminEditApplyBatch(batchId, edits, note) {
       });
 
       c._rowNumber = item.rowNumber;
+      c._auditUpdates = [];
 
       const id = String(c.contribution_id || "").trim();
       const edit = editMap.get(id);
@@ -1922,19 +1502,46 @@ function adminEditApplyBatch(batchId, edits, note) {
       c.operation = operation;
 
       if (operation !== "REMOVE") {
-        // Blank input means keep the previously submitted value.
         const editedName = String(edit.stopage_name ?? "").trim();
         const editedTime = String(edit.stopage_time ?? "").trim();
 
-        if (editedName) c.stopage_name = editedName;
-        if (editedTime) c.stopage_time = editedTime;
+        if (operation === "ADD") {
+          // ADD requires a name; time and map location are optional.
+          if (!editedName) {
+            throw new Error("Stopage name is required for a new stop.");
+          }
 
-        // A new stop must have a name.
-        if (operation === "ADD" && !String(c.stopage_name || "").trim()) {
-          throw new Error("Stopage name is required for a new stop.");
+          c.stopage_name = editedName;
+          c.stopage_time = editedTime;
+
+          c._auditUpdates.push(
+            ["stopage_name", editedName],
+            ["stopage_time", editedTime]
+          );
+
+        } else {
+          // UPDATE: blank or unchanged values mean preserve BusSchedule values.
+          const submittedName = String(c.stopage_name || "").trim();
+
+          if (editedName && editedName !== submittedName) {
+            c.stopage_name = editedName;
+            c._auditUpdates.push(["stopage_name", editedName]);
+          } else {
+            c.stopage_name = "";
+          }
+
+          if (
+            editedTime &&
+            !adminTimesEqual_(editedTime, c.stopage_time)
+          ) {
+            c.stopage_time = editedTime;
+            c._auditUpdates.push(["stopage_time", editedTime]);
+          } else {
+            c.stopage_time = "";
+          }
         }
 
-        // Location is optional. If supplied, both coordinates are required.
+        // Location is optional. If changed, both coordinates are required.
         const latText = String(edit.latitude ?? "").trim();
         const lngText = String(edit.longitude ?? "").trim();
 
@@ -1960,8 +1567,32 @@ function adminEditApplyBatch(batchId, edits, note) {
             throw new Error("Invalid longitude.");
           }
 
-          c.latitude = latitude;
-          c.longitude = longitude;
+          const hasOriginalLocation =
+            c.latitude !== "" && c.latitude != null &&
+            c.longitude !== "" && c.longitude != null;
+
+          const sameAsSubmittedLocation =
+            hasOriginalLocation &&
+            Math.abs(latitude - Number(c.latitude)) < 0.0000001 &&
+            Math.abs(longitude - Number(c.longitude)) < 0.0000001;
+
+          if (operation === "ADD" || !sameAsSubmittedLocation) {
+            c.latitude = latitude;
+            c.longitude = longitude;
+            c._auditUpdates.push(
+              ["latitude", latitude],
+              ["longitude", longitude]
+            );
+          } else {
+            // Unchanged submitted coordinates must not overwrite Stops.
+            c.latitude = "";
+            c.longitude = "";
+          }
+
+        } else {
+          // No location selected: preserve existing Stop coordinates.
+          c.latitude = "";
+          c.longitude = "";
         }
       }
 
@@ -1977,16 +1608,7 @@ function adminEditApplyBatch(batchId, edits, note) {
         ["reviewed_at", now],
         ["reviewed_by", adminEmail],
         ["admin_note", note || ""]
-      ];
-
-      if (c.operation !== "REMOVE") {
-        updates.push(
-          ["stopage_name", c.stopage_name],
-          ["stopage_time", c.stopage_time],
-          ["latitude", c.latitude],
-          ["longitude", c.longitude]
-        );
-      }
+      ].concat(c._auditUpdates || []);
 
       updates.forEach(([column, value]) => {
         const colIndex = table.headers.indexOf(column);
