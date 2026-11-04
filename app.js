@@ -616,17 +616,19 @@ function getBusTripGroups(busName) {
   });
 
   return [...groups.values()]
-    .map(group => ({
-      ...group,
-      stops: group.stops.sort((a, b) => {
-        const aSequence = Number(a.sequence);
-        const bSequence = Number(b.sequence);
-        if (Number.isFinite(aSequence) && Number.isFinite(bSequence)) {
-          return aSequence - bSequence;
-        }
-        return String(a.sequence || "").localeCompare(String(b.sequence || ""));
-      })
-    }))
+    .map(group => {
+      const sequenceVerified = group.stops.every(row => {
+        const value = String(row.sequence ?? "").trim();
+        return value !== "" && Number.isInteger(Number(value)) && Number(value) > 0;
+      });
+
+      // Keep source row order when any sequence is unknown; never infer a route order.
+      const stops = sequenceVerified
+        ? group.stops.slice().sort((a, b) => Number(a.sequence) - Number(b.sequence))
+        : group.stops.slice();
+
+      return { ...group, stops, sequenceVerified };
+    })
     .sort((a, b) => {
       const directionOrder = normalize(a.direction).localeCompare(normalize(b.direction));
       if (directionOrder) return directionOrder;
@@ -747,18 +749,58 @@ function openBusDetails(busName) {
             </div>
             ${days.length ? `<div class="bus-trip-days">Operating days: ${escapeHtml(days.join(", "))}</div>` : ""}
             <ol class="bus-route-stops">
-              ${trip.stops.map(stop => `
-                <li>
-                  <span class="bus-route-stop-name">${escapeHtml(stop.stopage || stop.stopage_name || "Stopage unavailable")}</span>
-                  <span class="bus-route-stop-time">${escapeHtml(stop.stopage_time || "Time not available")}</span>
-                </li>
-              `).join("")}
+              ${trip.stops.map(stop => {
+                const sequence = String(stop.sequence ?? "").trim();
+                const sequenceLabel = trip.sequenceVerified ? "#" + sequence : "Sequence unverified";
+                const timeLabel = String(stop.stopage_time || "").trim();
+                return `
+                  <li>
+                    <span class="bus-route-stop-name">${escapeHtml(stop.stopage || stop.stopage_name || "Stopage unavailable")} <small>${escapeHtml(sequenceLabel)}</small></span>
+                    <span class="bus-route-stop-time ${timeLabel ? "" : "unknown"}">${timeLabel ? escapeHtml(timeLabel) : "Not recorded"}</span>
+                  </li>
+                `;
+              }).join("")}
             </ol>
+            <div class="bus-route-map-wrap">
+              <div class="bus-route-map" id="bus-route-map-${index}" aria-label="Route map for ${escapeHtml(trip.direction)} trip"></div>
+              <p class="bus-route-map-note" id="bus-route-map-note-${index}"></p>
+            </div>
+            <div class="bus-route-actions">
+              <button type="button" class="bus-contribute-button" data-open-contribution="${index}" ${trip.trip_id ? "" : "disabled"}>Suggest a route or time correction</button>
+            </div>
+            <div id="contribution-panel-${index}" hidden></div>
           </article>
         `;
       }).join("") : '<div class="bus-directory-empty">No trip schedule is available for this bus yet.</div>'}
     </div>
   `;
+
+  trips.forEach((trip, index) => {
+    initializePublicRouteMap(
+      $("bus-route-map-" + index),
+      $("bus-route-map-note-" + index),
+      trip
+    );
+  });
+
+  content.querySelectorAll("[data-open-contribution]").forEach(button => {
+    button.addEventListener("click", () => {
+      const index = Number(button.dataset.openContribution);
+      const panel = $("contribution-panel-" + index);
+      if (!panel) return;
+      if (!panel.innerHTML.trim()) {
+        openContributionPanel(busName, trips[index], index);
+      } else {
+        panel.hidden = !panel.hidden;
+        if (!panel.hidden) {
+          panel.querySelectorAll(".contribution-map").forEach(mapElement => {
+            const mapState = contributionMapStates.get(mapElement.dataset.entryKey);
+            if (mapState) setTimeout(() => mapState.map.invalidateSize(), 100);
+          });
+        }
+      }
+    });
+  });
 
   $("bus-directory")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
