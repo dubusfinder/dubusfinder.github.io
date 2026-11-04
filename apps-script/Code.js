@@ -609,13 +609,94 @@ function testAdminIdentity() {
 function getAdminPendingContributions_() {
   const adminEmail = getAdminIdentity_();
 
-  const contributions = getSheetData(
-    CONTRIBUTION_CONFIG.SHEET_NAME
-  );
+  const sheet = SpreadsheetApp.getActiveSpreadsheet()
+    .getSheetByName(CONTRIBUTION_CONFIG.SHEET_NAME);
 
-  const pending = contributions.filter(row =>
-    String(row.status || "").trim().toLowerCase() === "pending"
-  );
+  if (!sheet) {
+    throw new Error("Sheet not found: " + CONTRIBUTION_CONFIG.SHEET_NAME);
+  }
+
+  const lastRow = sheet.getLastRow();
+  const lastColumn = sheet.getLastColumn();
+
+  if (lastRow < 2 || lastColumn < 1) {
+    return {
+      success: true,
+      admin_email: adminEmail,
+      total_pending: 0,
+      data: []
+    };
+  }
+
+  // Read the header and status column first, not the entire Contributions sheet.
+  const headers = sheet.getRange(1, 1, 1, lastColumn)
+    .getDisplayValues()[0]
+    .map(header => String(header).trim());
+
+  const statusColumn = headers.indexOf("status") + 1;
+
+  if (statusColumn < 1) {
+    throw new Error("Missing Contributions column: status");
+  }
+
+  const statuses = sheet.getRange(2, statusColumn, lastRow - 1, 1)
+    .getDisplayValues();
+
+  // Collect pending sheet row numbers in their original order.
+  const pendingRows = [];
+
+  statuses.forEach((item, index) => {
+    if (String(item[0] || "").trim().toLowerCase() === "pending") {
+      pendingRows.push(index + 2);
+    }
+  });
+
+  if (!pendingRows.length) {
+    return {
+      success: true,
+      admin_email: adminEmail,
+      total_pending: 0,
+      data: []
+    };
+  }
+
+  // Read full-width data only for pending rows. Adjacent rows are grouped
+  // into one range to reduce Spreadsheet service calls.
+  const pending = [];
+  let blockStart = pendingRows[0];
+  let previousRow = pendingRows[0];
+
+  function appendPendingBlock_(startRow, endRow) {
+    const values = sheet.getRange(
+      startRow,
+      1,
+      endRow - startRow + 1,
+      lastColumn
+    ).getDisplayValues();
+
+    values.forEach(row => {
+      if (!row.some(cell => String(cell).trim() !== "")) return;
+
+      const record = {};
+      headers.forEach((header, index) => {
+        if (header) record[header] = row[index] || "";
+      });
+      pending.push(record);
+    });
+  }
+
+  for (let i = 1; i < pendingRows.length; i++) {
+    const rowNumber = pendingRows[i];
+
+    if (rowNumber !== previousRow + 1) {
+      appendPendingBlock_(blockStart, previousRow);
+      blockStart = rowNumber;
+    }
+
+    previousRow = rowNumber;
+  }
+
+  appendPendingBlock_(blockStart, previousRow);
 
   return {
     success: true,
