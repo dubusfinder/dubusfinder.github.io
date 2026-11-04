@@ -976,6 +976,12 @@
         lat < -90 || lat > 90 || lng < -180 || lng > 180) return;
 
     adminSelectedCoordinates = { latitude: lat, longitude: lng };
+    if (!adminStopMap || typeof L === "undefined") {
+      document.getElementById("adminStopLocationCoords").textContent =
+        "Selected: " + lat.toFixed(6) + ", " + lng.toFixed(6);
+      document.getElementById("adminSaveStopLocation").disabled = false;
+      return;
+    }
     if (adminStopMarker) {
       adminStopMarker.setLatLng([lat, lng]);
     } else {
