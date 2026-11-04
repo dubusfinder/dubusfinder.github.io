@@ -758,6 +758,13 @@ function renderBusDirectorySuggestions(filterText = "") {
 }
 
 function openBusDetails(busName) {
+  publicRouteObservers.forEach(observer => observer.disconnect());
+  publicRouteObservers.clear();
+  publicRouteMaps.forEach(map => map.remove());
+  publicRouteMaps.clear();
+  contributionMapStates.forEach(state => state.map.remove());
+  contributionMapStates.clear();
+
   const directoryView = $("busDirectoryView");
   const detailsView = $("busDetailsView");
   const content = $("busDetailsContent");
@@ -896,6 +903,8 @@ $("backToBusDirectory")?.addEventListener("click", () => {
 ========================================= */
 
 const contributionMapStates = new Map();
+const publicRouteMaps = new Set();
+const publicRouteObservers = new Set();
 let contributionEntryCounter = 0;
 let lastGeocodeRequestAt = 0;
 
@@ -951,6 +960,7 @@ function initializePublicRouteMap(mapElement, noteElement, trip) {
   }
 
   const map = L.map(mapElement, { scrollWheelZoom: false }).setView([0, 0], 2);
+  publicRouteMaps.add(map);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution: "&copy; OpenStreetMap contributors"
@@ -994,9 +1004,11 @@ function initializePublicRouteMap(mapElement, noteElement, trip) {
     const observer = new IntersectionObserver(entries => {
       if (entries.some(entry => entry.isIntersecting)) {
         observer.disconnect();
+        publicRouteObservers.delete(observer);
         renderMap();
       }
     }, { rootMargin: "160px" });
+    publicRouteObservers.add(observer);
     observer.observe(mapElement);
   } else {
     renderMap();
