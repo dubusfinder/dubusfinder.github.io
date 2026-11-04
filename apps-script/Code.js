@@ -18,7 +18,9 @@ const CONTRIBUTION_CONFIG = {
   MAX_STOPS_PER_SUBMISSION: 20,
   MAX_SUBMISSIONS_PER_EMAIL: 5,
   RATE_WINDOW_SECONDS: 600,
-  DUPLICATE_WINDOW_SECONDS: 120
+  DUPLICATE_WINDOW_SECONDS: 120,
+  MAX_PAYLOAD_CHARS: 30000,
+  NONCE_TTL_SECONDS: 600
 };
 
 
@@ -68,6 +70,79 @@ function getDatabase() {
    2. PUBLIC GET API
 ========================================= */
 
+function issueContributionNonce_() {
+  const token = Utilities.getUuid() + "." + Utilities.getUuid();
+  CacheService.getScriptCache().put(
+    "contrib_nonce_" + contributionHash(token),
+    "1",
+    CONTRIBUTION_CONFIG.NONCE_TTL_SECONDS
+  );
+  return token;
+}
+
+function consumeContributionNonce_(token) {
+  const value = String(token || "").trim();
+  if (!value || value.length > 100) {
+    throw new Error("Please refresh the form and try again.");
+  }
+
+  const cache = CacheService.getScriptCache();
+  const key = "contrib_nonce_" + contributionHash(value);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(5000);
+
+  try {
+    if (cache.get(key) !== "1") {
+      throw new Error("Form security token expired or already used. Please try again.");
+    }
+    cache.remove(key);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function getPublicSubmissionStatus_(batchId) {
+  const id = String(batchId || "").trim();
+  if (!/^BATCH-[a-f0-9-]{36}$/i.test(id)) {
+    throw new Error("Invalid submission reference.");
+  }
+
+  const sheet = SpreadsheetApp.getActiveSpreadsheet()
+    .getSheetByName(CONTRIBUTION_CONFIG.SHEET_NAME);
+
+  if (!sheet || sheet.getLastRow() < 2) {
+    return { success: true, found: false, status: "Not found", count: 0 };
+  }
+
+  const lastColumn = sheet.getLastColumn();
+  const headers = sheet.getRange(1, 1, 1, lastColumn)
+    .getDisplayValues()[0].map(value => String(value).trim());
+  const batchColumn = headers.indexOf("batch_id") + 1;
+  const statusColumn = headers.indexOf("status") + 1;
+
+  if (batchColumn < 1 || statusColumn < 1) {
+    throw new Error("Contribution status is temporarily unavailable.");
+  }
+
+  const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, lastColumn)
+    .getDisplayValues();
+  const matches = rows.filter(row => String(row[batchColumn - 1]).trim() === id);
+
+  if (!matches.length) {
+    return { success: true, found: false, status: "Not found", count: 0 };
+  }
+
+  const statuses = [...new Set(matches.map(row =>
+    String(row[statusColumn - 1] || "").trim()
+  ))];
+
+  return {
+    success: true,
+    found: true,
+    status: statuses.length === 1 ? statuses[0] : "Mixed",
+    count: matches.length
+  };
+}
 
 function doGet(e) {
   try {
@@ -102,6 +177,12 @@ function doGet(e) {
         success: true,
         data: getSheetData(SHEETS.serviceDays)
       };
+
+    } else if (action === "contribution_nonce") {
+      result = { success: true, nonce: issueContributionNonce_() };
+
+    } else if (action === "submission_status") {
+      result = getPublicSubmissionStatus_(params.batch_id);
 
     } else if (action === "admin_pending") {
       result = getAdminPendingContributions_();
@@ -222,6 +303,10 @@ function doPost(e) {
       throw new Error("Missing contribution payload.");
     }
 
+    if (String(rawPayload).length > CONTRIBUTION_CONFIG.MAX_PAYLOAD_CHARS) {
+      throw new Error("Submission is too large. Please reduce the number of stopages.");
+    }
+
     const payload = JSON.parse(rawPayload);
           /* =====================================
        ADMIN APPROVE / REJECT API
@@ -243,7 +328,7 @@ function doPost(e) {
         throw new Error("Contribution ID or Batch ID is required.");
       }
 
-      if (!["APPROVE", "REJECT"].includes(decision)) {
+      if (!["APPROVE", "REJECT", "REQUEST_CORRECTION"].includes(decision)) {
         throw new Error("Invalid review decision.");
       }
 
@@ -259,6 +344,8 @@ function doPost(e) {
         error: "Invalid submission."
       });
     }
+
+    consumeContributionNonce_(payload.nonce);
 
     const email = String(payload.email || "")
       .trim()
@@ -319,6 +406,30 @@ function doPost(e) {
       throw new Error("Selected bus has no bus name.");
     }
 
+    const scheduleRows = getSheetData(SHEETS.schedule);
+    const tripRows = scheduleRows.filter(row =>
+      String(row.trip_id || "").trim() === tripId
+    );
+
+    if (!tripRows.length) {
+      throw new Error("Selected trip was not found.");
+    }
+
+    const tripMatches = tripRows.every(row =>
+      String(row.bus_name || "").trim() === String(selectedBus.bus_name).trim() &&
+      String(row.direction || "").trim().toUpperCase() === direction &&
+      String(row.trip_time || "").trim() === tripTime
+    );
+
+    if (!tripMatches) {
+      throw new Error("Trip details do not match the selected bus.");
+    }
+
+    const stopTable = getSheetData(SHEETS.stops);
+    const validStopIds = new Set(stopTable.map(row =>
+      String(row.stop_id || "").trim()
+    ).filter(Boolean));
+
     const cleanStops = stops.map((stop, index) => {
       const operation = String(stop.operation || "ADD")
         .trim()
@@ -341,6 +452,14 @@ function doPost(e) {
         "Sequence",
         operation !== "REMOVE"
       );
+
+      if (sequence !== "" && (!Number.isInteger(sequence) || sequence < 1)) {
+        throw new Error("Sequence must be a positive whole number.");
+      }
+      if (targetSequence !== "" &&
+          (!Number.isInteger(targetSequence) || targetSequence < 1)) {
+        throw new Error("Target sequence must be a positive whole number.");
+      }
 
       const latitude = contributionNumber(
         stop.latitude,
@@ -378,24 +497,25 @@ function doPost(e) {
         stop.stopage_name || ""
       ).trim();
 
-      if (operation !== "REMOVE" && !stopageName) {
-        throw new Error("Stopage name is required.");
+      if (operation === "ADD" && !stopageName) {
+        throw new Error("Stopage name is required for a new stop.");
       }
 
-      if (
-        operation !== "REMOVE" &&
-        !String(stop.stopage_time || "").trim()
-      ) {
-        throw new Error("Stopage time is required.");
+      const stopageTime = String(stop.stopage_time || "").trim();
+      if (stopageTime) adminTimeToSheetValue_(stopageTime);
+
+      const stopId = String(stop.stop_id || "").trim();
+      if (stopId && !validStopIds.has(stopId)) {
+        throw new Error("Selected existing stopage could not be verified.");
       }
 
       return {
         operation: operation,
         targetSequence: targetSequence,
         sequence: sequence,
-        stopId: String(stop.stop_id || "").trim(),
+        stopId: stopId,
         stopageName: stopageName,
-        stopageTime: String(stop.stopage_time || "").trim(),
+        stopageTime: stopageTime,
         latitude: latitude,
         longitude: longitude,
         contributionType: String(
@@ -490,7 +610,10 @@ function doPost(e) {
 
       const now = new Date();
       const submittedAt = now.toISOString();
-      const batchId = "BATCH-" + Utilities.getUuid();
+      const requestedBatchId = String(payload.client_batch_id || "").trim();
+      const batchId = /^BATCH-[a-f0-9-]{36}$/i.test(requestedBatchId)
+        ? requestedBatchId
+        : "BATCH-" + Utilities.getUuid();
 
       const rows = cleanStops.map(stop => {
         const record = {
@@ -866,6 +989,26 @@ function adminMakeRow_(table, record) {
   );
 }
 
+function adminAssertNoDataFormulas_(table) {
+  const lastRow = table.sheet.getLastRow();
+  if (lastRow < 2) return;
+
+  const formulas = table.sheet.getRange(
+    2, 1, lastRow - 1, table.headers.length
+  ).getFormulas();
+
+  const hasFormula = formulas.some(row =>
+    row.some(formula => String(formula || "").trim() !== "")
+  );
+
+  if (hasFormula) {
+    throw new Error(
+      "Formula cells were found in " + table.sheet.getName() +
+      ". Approval was stopped to avoid replacing formulas with static values."
+    );
+  }
+}
+
 
 /* =========================================
    8. SCHEDULE TARGET FINDER
@@ -929,6 +1072,10 @@ function adminApplyApproved_(contributions) {
   const schedule = adminLoadTable_(SHEETS.schedule);
   const stops = adminLoadTable_(SHEETS.stops);
   const buses = adminLoadTable_(SHEETS.buses);
+
+  // This engine reorders full trip rows. Stop rather than flatten sheet formulas.
+  adminAssertNoDataFormulas_(schedule);
+  adminAssertNoDataFormulas_(stops);
 
   [
     "bus_name",
@@ -1422,10 +1569,12 @@ function adminTakeSnapshot_(sheetName) {
     throw new Error("Cannot snapshot missing sheet: " + sheetName);
   }
 
+  const range = sheet.getDataRange();
   return {
     sheet: sheet,
     name: sheetName,
-    values: sheet.getDataRange().getValues()
+    values: range.getValues(),
+    formulas: range.getFormulas()
   };
 }
 
@@ -1480,6 +1629,15 @@ function adminRestoreSnapshot_(snapshot) {
       oldRows,
       oldColumns
     ).setValues(oldValues);
+
+    const formulas = snapshot.formulas || [];
+    formulas.forEach((row, rowIndex) => {
+      row.forEach((formula, columnIndex) => {
+        if (String(formula || "").trim()) {
+          sheet.getRange(rowIndex + 1, columnIndex + 1).setFormula(formula);
+        }
+      });
+    });
   }
 }
 
@@ -1489,7 +1647,22 @@ function adminRestoreSnapshot_(snapshot) {
    12. INDIVIDUAL + BATCH REVIEW
 ========================================= */
 
-function adminReview_(id, isBatch, decision, note) {
+function adminReviewContribution(contributionId, decision, note) {
+  return adminReview_(contributionId, false, decision, note, null);
+}
+
+function adminReviewBatch(batchId, decision, note) {
+  return adminReview_(batchId, true, decision, note, null);
+}
+
+function adminEditApplyBatch(batchId, edits, note) {
+  if (!Array.isArray(edits) || !edits.length) {
+    throw new Error("At least one edit is required.");
+  }
+  return adminReview_(batchId, true, "APPROVE", note, edits);
+}
+
+function adminReview_(id, isBatch, decision, note, edits) {
 
   const adminEmail = getAdminIdentity_();
 
@@ -1497,8 +1670,12 @@ function adminReview_(id, isBatch, decision, note) {
     .trim()
     .toUpperCase();
 
-  if (!["APPROVE", "REJECT"].includes(decision)) {
-    throw new Error("Decision must be APPROVE or REJECT.");
+  if (!["APPROVE", "REJECT", "REQUEST_CORRECTION"].includes(decision)) {
+    throw new Error("Invalid review decision.");
+  }
+
+  if (decision === "REQUEST_CORRECTION" && !String(note || "").trim()) {
+    throw new Error("Add a note explaining the required correction.");
   }
 
   if (!String(id || "").trim()) {
@@ -1560,6 +1737,17 @@ function adminReview_(id, isBatch, decision, note) {
       throw new Error("No Pending Contribution found.");
     }
 
+    const editMap = new Map();
+    if (Array.isArray(edits)) {
+      edits.forEach(edit => {
+        const contributionId = String(edit.contribution_id || "").trim();
+        if (!contributionId || editMap.has(contributionId)) {
+          throw new Error("Invalid or duplicate contribution edit.");
+        }
+        editMap.set(contributionId, edit);
+      });
+    }
+
     const contributions = selected.map(item => {
       const c = {};
 
@@ -1570,12 +1758,21 @@ function adminReview_(id, isBatch, decision, note) {
       c._rowNumber = item.rowNumber;
       c._auditUpdates = [];
 
-      const id = String(c.contribution_id || "").trim();
-      const edit = editMap.get(id);
+      if (decision !== "APPROVE" || !Array.isArray(edits)) return c;
 
-      if (!edit) {
-        throw new Error("Missing edit for contribution: " + id);
+      const contributionId = String(c.contribution_id || "").trim();
+      const suppliedEdit = editMap.get(contributionId);
+
+      if (Array.isArray(edits) && !suppliedEdit) {
+        throw new Error("Missing edit for contribution: " + contributionId);
       }
+
+      const edit = suppliedEdit || {
+        stopage_name: c.stopage_name || "",
+        stopage_time: c.stopage_time || "",
+        latitude: c.latitude ?? "",
+        longitude: c.longitude ?? ""
+      };
 
       const operation = String(c.operation || "ADD")
         .trim().toUpperCase();
@@ -1684,19 +1881,30 @@ function adminReview_(id, isBatch, decision, note) {
       return c;
     });
 
-    const applyResult = adminApplyApproved_(contributions);
+    const applyResult = decision === "APPROVE"
+      ? adminApplyApproved_(contributions)
+      : null;
+
     const now = new Date().toISOString();
+    const status = decision === "APPROVE"
+      ? "Approved"
+      : decision === "REJECT"
+        ? "Rejected"
+        : "Correction Requested";
+    const logAction = decision === "APPROVE"
+      ? (Array.isArray(edits) ? "ADMIN_EDIT_APPLY" : "APPROVE")
+      : decision;
 
     contributions.forEach(c => {
       const updates = [
-        ["status", "Approved"],
+        ["status", status],
         ["reviewed_at", now],
         ["reviewed_by", adminEmail],
         ["admin_note", note || ""]
       ].concat(c._auditUpdates || []);
 
       // Keep the resolved/generated Stop ID in the Contributions audit row.
-      if (c.stop_id) updates.push(["stop_id", c.stop_id]);
+      if (c.stop_id && decision === "APPROVE") updates.push(["stop_id", c.stop_id]);
 
       updates.forEach(([column, value]) => {
         const colIndex = table.headers.indexOf(column);
@@ -1711,16 +1919,20 @@ function adminReview_(id, isBatch, decision, note) {
 
       adminWriteLog_(
         c.contribution_id,
-        "ADMIN_EDIT_APPLY",
+        logAction,
         adminEmail,
-        note || "Admin edited and applied contribution."
+        note || (decision === "APPROVE"
+          ? "Approved contribution."
+          : decision === "REJECT"
+            ? "Rejected contribution."
+            : "Correction requested.")
       );
     });
 
     return {
       success: true,
-      decision: "APPROVED",
-      action: "ADMIN_EDIT_APPLY",
+      decision: decision,
+      action: logAction,
       reviewed_count: contributions.length,
       reviewed_by: adminEmail,
       apply_result: applyResult
@@ -1750,6 +1962,287 @@ function adminReview_(id, isBatch, decision, note) {
       "Admin Edit failed. Previous sheet data was restored. Reason: " +
       error.message
     );
+
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+
+/* =========================================
+   13. COPY-ONLY STOP ID MIGRATION
+   Never edits the original BusSchedule sheet.
+========================================= */
+
+function adminNormalizeStopName_(value) {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[.,;:()\-–—]/g, "")
+    .replace(/\s+/g, " ");
+}
+
+function buildStopIdMigrationPlan_() {
+  const schedule = adminLoadTable_(SHEETS.schedule);
+  const stops = adminLoadTable_(SHEETS.stops);
+
+  const scheduleStopIdIndex = adminCol_(schedule, "stop_id");
+  const scheduleNameIndex = adminCol_(schedule, "stopage");
+  const stopIdIndex = adminCol_(stops, "stop_id");
+  const stopNameIndex = adminCol_(stops, "stopage_name");
+
+  const stopLookup = new Map();
+  stops.values.forEach(row => {
+    const name = adminNormalizeStopName_(row[stopNameIndex]);
+    const id = String(row[stopIdIndex] || "").trim();
+    if (!name || !id) return;
+    if (!stopLookup.has(name)) stopLookup.set(name, []);
+    stopLookup.get(name).push(id);
+  });
+
+  const plan = {
+    schedule,
+    stopIdColumn: scheduleStopIdIndex + 1,
+    updates: [],
+    alreadyLinked: 0,
+    unknown: 0,
+    unmatched: 0,
+    ambiguous: 0
+  };
+
+  schedule.values.forEach((row, index) => {
+    const currentId = String(row[scheduleStopIdIndex] || "").trim();
+    const name = String(row[scheduleNameIndex] || "").trim();
+
+    if (currentId) {
+      plan.alreadyLinked++;
+      return;
+    }
+
+    if (!name || name.toUpperCase() === "UNKNOWN") {
+      plan.unknown++;
+      return;
+    }
+
+    const candidates = stopLookup.get(adminNormalizeStopName_(name)) || [];
+    const uniqueIds = [...new Set(candidates)];
+
+    if (uniqueIds.length === 1) {
+      plan.updates.push({
+        rowNumber: index + 2,
+        stopId: uniqueIds[0]
+      });
+    } else if (uniqueIds.length > 1) {
+      plan.ambiguous++;
+    } else {
+      plan.unmatched++;
+    }
+  });
+
+  return plan;
+}
+
+function adminPreviewStopIdMigration() {
+  const adminEmail = getAdminIdentity_();
+  const plan = buildStopIdMigrationPlan_();
+
+  return {
+    success: true,
+    admin_email: adminEmail,
+    original_sheet: SHEETS.schedule,
+    original_modified: false,
+    rows_with_unique_candidate: plan.updates.length,
+    already_linked: plan.alreadyLinked,
+    unknown_or_blank_name: plan.unknown,
+    unmatched: plan.unmatched,
+    ambiguous: plan.ambiguous,
+    action: "PREVIEW_ONLY"
+  };
+}
+
+function adminCreateStopIdMigrationCopy() {
+  const adminEmail = getAdminIdentity_();
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+
+  let copy = null;
+
+  try {
+    const plan = buildStopIdMigrationPlan_();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const stamp = Utilities.formatDate(
+      new Date(),
+      ss.getSpreadsheetTimeZone(),
+      "yyyyMMdd_HHmmss"
+    );
+
+    let name = "BusSchedule_Migration_" + stamp;
+    let suffix = 1;
+    while (ss.getSheetByName(name)) {
+      name = "BusSchedule_Migration_" + stamp + "_" + suffix;
+      suffix++;
+    }
+
+    copy = plan.schedule.sheet.copyTo(ss);
+    copy.setName(name);
+
+    if (plan.schedule.values.length && plan.updates.length) {
+      const idValues = copy.getRange(
+        2,
+        plan.stopIdColumn,
+        plan.schedule.values.length,
+        1
+      ).getValues();
+
+      plan.updates.forEach(update => {
+        idValues[update.rowNumber - 2][0] = update.stopId;
+      });
+
+      // Only the stop_id column in the copied sheet is updated.
+      copy.getRange(
+        2,
+        plan.stopIdColumn,
+        idValues.length,
+        1
+      ).setValues(idValues);
+    }
+
+    return {
+      success: true,
+      admin_email: adminEmail,
+      original_sheet: SHEETS.schedule,
+      original_modified: false,
+      copy_sheet: name,
+      rows_with_unique_candidate: plan.updates.length,
+      already_linked: plan.alreadyLinked,
+      unknown_or_blank_name: plan.unknown,
+      unmatched: plan.unmatched,
+      ambiguous: plan.ambiguous
+    };
+
+  } catch (error) {
+    if (copy) {
+      try {
+        SpreadsheetApp.getActiveSpreadsheet().deleteSheet(copy);
+      } catch (cleanupError) {
+        throw new Error(
+          "Migration copy failed: " + error.message +
+          ". Temporary copy cleanup failed: " + cleanupError.message
+        );
+      }
+    }
+    throw error;
+
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+
+/* =========================================
+   14. ADMIN EXISTING STOP LOCATION MANAGER
+========================================= */
+
+function getAdminStopLocationOptions() {
+  const adminEmail = getAdminIdentity_();
+  const rows = getSheetData(SHEETS.stops);
+
+  return {
+    success: true,
+    admin_email: adminEmail,
+    data: rows.map(row => ({
+      stop_id: String(row.stop_id || ""),
+      stopage_name: String(row.stopage_name || ""),
+      latitude: String(row.latitude || ""),
+      longitude: String(row.longitude || "")
+    }))
+  };
+}
+
+function adminSetStopLocation(stopId, latitude, longitude, note) {
+  const adminEmail = getAdminIdentity_();
+  const id = String(stopId || "").trim();
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+
+  if (!id) throw new Error("Select an existing stopage.");
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+    throw new Error("Latitude is invalid.");
+  }
+  if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
+    throw new Error("Longitude is invalid.");
+  }
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  let snapshots = [];
+
+  try {
+    snapshots = [
+      adminTakeSnapshot_(SHEETS.stops),
+      adminTakeSnapshot_("AdminLog")
+    ];
+
+    const table = adminLoadTable_(SHEETS.stops);
+    const idIndex = adminCol_(table, "stop_id");
+    const latIndex = adminCol_(table, "latitude");
+    const lngIndex = adminCol_(table, "longitude");
+
+    const matches = [];
+    table.values.forEach((row, index) => {
+      if (String(row[idIndex] || "").trim() === id) {
+        matches.push(index + 2);
+      }
+    });
+
+    if (matches.length !== 1) {
+      throw new Error("Stopage ID could not be uniquely identified.");
+    }
+
+    const rowNumber = matches[0];
+    const latitudeCell = table.sheet.getRange(rowNumber, latIndex + 1);
+    const longitudeCell = table.sheet.getRange(rowNumber, lngIndex + 1);
+
+    if (latitudeCell.getFormula() || longitudeCell.getFormula()) {
+      throw new Error("Selected coordinate cells contain formulas and cannot be overwritten.");
+    }
+
+    latitudeCell.setValue(lat);
+    longitudeCell.setValue(lng);
+
+    adminWriteLog_(
+      "STOP:" + id,
+      "ADMIN_SET_STOP_LOCATION",
+      adminEmail,
+      String(note || "").trim() || "Admin updated existing stopage coordinates."
+    );
+
+    return {
+      success: true,
+      stop_id: id,
+      latitude: lat,
+      longitude: lng,
+      updated_by: adminEmail
+    };
+
+  } catch (error) {
+    const rollbackErrors = [];
+    for (let index = snapshots.length - 1; index >= 0; index--) {
+      try {
+        adminRestoreSnapshot_(snapshots[index]);
+      } catch (restoreError) {
+        rollbackErrors.push(
+          snapshots[index].name + ": " + restoreError.message
+        );
+      }
+    }
+    if (rollbackErrors.length) {
+      throw new Error(
+        "Location update failed: " + error.message +
+        ". Rollback incomplete: " + rollbackErrors.join(" | ")
+      );
+    }
+    throw new Error("Location update failed. Previous sheet data was restored. Reason: " + error.message);
 
   } finally {
     lock.releaseLock();

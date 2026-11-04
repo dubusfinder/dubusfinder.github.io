@@ -7,12 +7,52 @@ on:
     paths:
       - "apps-script/**"
       - ".github/workflows/deploy-apps-script.yml"
+      - "app.js"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "apps-script/**"
+      - ".github/workflows/deploy-apps-script.yml"
+      - "app.js"
   workflow_dispatch:
 
 jobs:
-  deploy:
+  validate:
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Validate JavaScript syntax
+        run: |
+          node --check app.js
+          node --check apps-script/Code.js
+          node --check apps-script/GitHubSync.js
+          node - <<'NODE'
+          const fs = require('fs');
+          const childProcess = require('child_process');
+          const html = fs.readFileSync('apps-script/AdminDashboard.html', 'utf8');
+          const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
+            .map(match => match[1].trim())
+            .filter(Boolean);
+          scripts.forEach((source, index) => {
+            const path = `/tmp/admin-dashboard-${index}.js`;
+            fs.writeFileSync(path, source);
+            childProcess.execFileSync(process.execPath, ['--check', path], { stdio: 'inherit' });
+          });
+          if (!scripts.length) throw new Error('No inline Admin Dashboard JavaScript found.');
+          NODE
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: validate
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

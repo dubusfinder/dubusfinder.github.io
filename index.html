@@ -14,6 +14,7 @@
 
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./favicon.ico">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <link rel="stylesheet" href="./style.css">
 
 </head>
@@ -33,10 +34,9 @@
       </a>
 
       <nav class="main-nav" id="mainNavigation" aria-label="Main navigation">
-        <a href="#search-section">লাল বাস</a>
+        <a href="#bus-directory" data-open-bus-directory>লাল বাস</a>
         <a href="#quick-search">Explore</a>
         <a href="#results-section">Schedules</a>
-        <a href="#bus-directory">All Buses</a>
         <a href="#bus-directory">All Buses</a>
       </nav>
 
@@ -241,7 +241,8 @@
           <p>Choose a bus to explore its complete routes and schedules.</p>
         </div>
         <div class="bus-directory-toolbar">
-          <input type="search" id="busDirectorySearch" placeholder="Search bus name..." autocomplete="off" aria-label="Search buses">
+          <input type="search" id="busDirectorySearch" placeholder="Search bus name..." autocomplete="off" aria-label="Search buses" aria-controls="busDirectorySuggestions" aria-expanded="false">
+          <div id="busDirectorySuggestions" class="bus-directory-suggestions" hidden></div>
           <span id="busDirectoryCount" class="bus-directory-count">Loading buses...</span>
         </div>
         <div id="busDirectoryGrid" class="bus-directory-grid">
@@ -372,7 +373,7 @@
       </div>
 
       <div class="footer-links">
-        <a href="#search-section">লাল বাস</a>
+        <a href="#bus-directory">লাল বাস</a>
         <a href="#quick-search">Explore</a>
         <a href="#results-section">Schedules</a>
       </div>
@@ -385,6 +386,10 @@
 
   </footer>
 
+
+  <!-- Public route and contribution maps use Leaflet + OpenStreetMap. -->
+  <iframe id="contributionPostFrame" name="contributionPostFrame" title="Contribution submission" hidden></iframe>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 
   <!-- JAVASCRIPT -->
   <script src="./app.js"></script>
