@@ -766,11 +766,13 @@
         };
       }
 
-      const nameInput = document.querySelector(
+      const card = document.getElementById(`batch-card-${index}`);
+
+      const nameInput = card.querySelector(
         `.edit-name[data-row="${stopIndex}"]`
       );
 
-      const timeInput = document.querySelector(
+      const timeInput = card.querySelector(
         `.edit-time[data-row="${stopIndex}"]`
       );
 
