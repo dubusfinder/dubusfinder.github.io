@@ -962,6 +962,202 @@
       .adminReviewBatch(batchId, decision, note);
   }
 
+
+  let adminStopRows = [];
+  let adminStopMap = null;
+  let adminStopMarker = null;
+  let adminSelectedCoordinates = null;
+  let adminPlaceResults = [];
+
+  function setAdminStopLocation(latitude, longitude, centerMap) {
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) ||
+        lat < -90 || lat > 90 || lng < -180 || lng > 180) return;
+
+    adminSelectedCoordinates = { latitude: lat, longitude: lng };
+    if (adminStopMarker) {
+      adminStopMarker.setLatLng([lat, lng]);
+    } else {
+      adminStopMarker = L.marker([lat, lng], { draggable: true }).addTo(adminStopMap);
+      adminStopMarker.on("dragend", () => {
+        const position = adminStopMarker.getLatLng();
+        setAdminStopLocation(position.lat, position.lng, false);
+      });
+    }
+
+    document.getElementById("adminStopLocationCoords").textContent =
+      "Selected: " + lat.toFixed(6) + ", " + lng.toFixed(6);
+    document.getElementById("adminSaveStopLocation").disabled = false;
+    if (centerMap) adminStopMap.setView([lat, lng], 16);
+  }
+
+  function clearAdminStopLocation() {
+    adminSelectedCoordinates = null;
+    if (adminStopMarker) {
+      adminStopMap.removeLayer(adminStopMarker);
+      adminStopMarker = null;
+    }
+    document.getElementById("adminStopLocationCoords").textContent =
+      "No coordinates selected.";
+    document.getElementById("adminSaveStopLocation").disabled = true;
+  }
+
+  function initializeAdminStopMap() {
+    const element = document.getElementById("adminStopLocationMap");
+    if (typeof L === "undefined") {
+      element.textContent = "Leaflet map library is unavailable.";
+      return;
+    }
+
+    adminStopMap = L.map(element, { scrollWheelZoom: false }).setView([0, 0], 2);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(adminStopMap);
+
+    adminStopMap.on("click", event => {
+      setAdminStopLocation(event.latlng.lat, event.latlng.lng, false);
+    });
+    setTimeout(() => adminStopMap.invalidateSize(), 150);
+  }
+
+  function selectAdminStopLocation() {
+    const id = document.getElementById("adminStopSelect").value;
+    const stop = adminStopRows.find(item => String(item.stop_id) === id);
+    clearAdminStopLocation();
+    if (!stop) return;
+
+    const latText = String(stop.latitude || "").trim();
+    const lngText = String(stop.longitude || "").trim();
+    if (latText && lngText) {
+      setAdminStopLocation(Number(latText), Number(lngText), true);
+    }
+    document.getElementById("adminStopLocationStatus").textContent =
+      stop.stopage_name + (latText && lngText
+        ? " · Existing location loaded. Move the pin or save after review."
+        : " · No location recorded. Search or click the map to place a pin.");
+  }
+
+  function loadAdminStopLocations() {
+    const select = document.getElementById("adminStopSelect");
+    document.getElementById("adminStopLocationStatus").textContent =
+      "Loading existing stopages...";
+    google.script.run
+      .withSuccessHandler(result => {
+        if (!result || result.success !== true) {
+          document.getElementById("adminStopLocationStatus").textContent =
+            result?.error || "Unable to load stopages.";
+          return;
+        }
+
+        adminStopRows = result.data || [];
+        select.innerHTML = '<option value="">Choose a stopage</option>' +
+          adminStopRows.map(item =>
+            '<option value="' + esc(item.stop_id) + '">' +
+            esc(item.stopage_name) + ' · ' + esc(item.stop_id) + '</option>'
+          ).join("");
+
+        initializeAdminStopMap();
+        select.addEventListener("change", selectAdminStopLocation);
+        if (adminStopRows.length) select.value = adminStopRows[0].stop_id;
+        selectAdminStopLocation();
+      })
+      .withFailureHandler(error => {
+        document.getElementById("adminStopLocationStatus").textContent =
+          error.message || "Unable to load stopages.";
+      })
+      .getAdminStopLocationOptions();
+  }
+
+  async function searchAdminStopPlace() {
+    const query = document.getElementById("adminPlaceQuery").value.trim();
+    const button = document.getElementById("adminPlaceSearch");
+    const resultsSelect = document.getElementById("adminPlaceResults");
+    if (query.length < 3) {
+      alert("Enter at least 3 characters to search.");
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = "Searching...";
+    try {
+      const response = await fetch(
+        "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&q=" +
+        encodeURIComponent(query),
+        { headers: { "Accept": "application/json" } }
+      );
+      if (!response.ok) throw new Error("Place search is unavailable.");
+      adminPlaceResults = await response.json();
+      resultsSelect.innerHTML = '<option value="">Choose a search result</option>' +
+        adminPlaceResults.map((item, index) =>
+          '<option value="' + index + '">' + esc(item.display_name || "Map result") + '</option>'
+        ).join("");
+      resultsSelect.hidden = false;
+      if (!adminPlaceResults.length) {
+        document.getElementById("adminStopLocationStatus").textContent =
+          "No result found. Click the map to place the pin manually.";
+      }
+    } catch (error) {
+      document.getElementById("adminStopLocationStatus").textContent =
+        error.message || "Place search failed.";
+    } finally {
+      button.disabled = false;
+      button.textContent = "Search";
+    }
+  }
+
+  function saveAdminStopLocation() {
+    const stopId = document.getElementById("adminStopSelect").value;
+    const note = document.getElementById("adminStopLocationNote").value;
+    const button = document.getElementById("adminSaveStopLocation");
+    if (!stopId || !adminSelectedCoordinates) {
+      alert("Select a stopage and place its map pin first.");
+      return;
+    }
+
+    const confirmed = confirm(
+      "Save these coordinates to the approved Stops sheet for the selected stopage?"
+    );
+    if (!confirmed) return;
+
+    button.disabled = true;
+    button.textContent = "Saving...";
+    google.script.run
+      .withSuccessHandler(result => {
+        if (!result || result.success !== true) {
+          document.getElementById("adminStopLocationStatus").textContent =
+            result?.error || "Location update failed.";
+          button.disabled = false;
+          button.textContent = "Save stopage location";
+          return;
+        }
+
+        const stop = adminStopRows.find(item => String(item.stop_id) === stopId);
+        if (stop) {
+          stop.latitude = String(result.latitude);
+          stop.longitude = String(result.longitude);
+        }
+        document.getElementById("adminStopLocationStatus").textContent =
+          "Saved verified location for " + (stop?.stopage_name || stopId) + ".";
+        document.getElementById("adminStopLocationNote").value = "";
+        button.disabled = false;
+        button.textContent = "Save stopage location";
+      })
+      .withFailureHandler(error => {
+        document.getElementById("adminStopLocationStatus").textContent =
+          error.message || "Location update failed.";
+        button.disabled = false;
+        button.textContent = "Save stopage location";
+      })
+      .adminSetStopLocation(
+        stopId,
+        adminSelectedCoordinates.latitude,
+        adminSelectedCoordinates.longitude,
+        note
+      );
+  }
+
   function showError(error) {
 
     messageEl.innerHTML =
@@ -974,6 +1170,19 @@
     .getElementById("refreshButton")
     .addEventListener("click", loadData);
 
+  document.getElementById("adminPlaceSearch")
+    .addEventListener("click", searchAdminStopPlace);
+
+  document.getElementById("adminPlaceResults")
+    .addEventListener("change", event => {
+      const item = adminPlaceResults[Number(event.target.value)];
+      if (item) setAdminStopLocation(Number(item.lat), Number(item.lon), true);
+    });
+
+  document.getElementById("adminSaveStopLocation")
+    .addEventListener("click", saveAdminStopLocation);
+
+  loadAdminStopLocations();
   loadData();
 
 </script>
