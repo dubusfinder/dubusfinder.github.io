@@ -230,6 +230,31 @@
     <strong id="pendingCount">—</strong>
   </div>
 
+  <section class="card" id="stopLocationManager">
+    <h2>Manage existing stopage locations</h2>
+    <p class="map-help">Admin-only: select a stopage, search a place or click/drag its pin, then save the verified coordinates. This updates only the selected Stops latitude/longitude cells.</p>
+    <div class="field">
+      <label for="adminStopSelect">Existing stopage</label>
+      <select id="adminStopSelect"><option value="">Loading stopages...</option></select>
+    </div>
+    <div class="field">
+      <label for="adminPlaceQuery">Search place (OpenStreetMap)</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input id="adminPlaceQuery" type="search" placeholder="Search a stopage or nearby landmark">
+        <button type="button" class="refresh" id="adminPlaceSearch">Search</button>
+      </div>
+      <select id="adminPlaceResults" hidden><option value="">Choose a search result</option></select>
+    </div>
+    <div class="map-heading">Location pin</div>
+    <div class="map" id="adminStopLocationMap"></div>
+    <div class="coordinates" id="adminStopLocationCoords">No coordinates selected.</div>
+    <textarea id="adminStopLocationNote" placeholder="Admin note (optional)..."></textarea>
+    <div class="actions">
+      <button type="button" class="save" id="adminSaveStopLocation" disabled>Save stopage location</button>
+    </div>
+    <div id="adminStopLocationStatus" class="map-help" role="status" aria-live="polite"></div>
+  </section>
+
   <div id="message" class="message">Loading contributions...</div>
   <div id="contributions"></div>
 
