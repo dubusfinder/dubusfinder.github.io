@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f4f7f8;
+      color: #172b3a;
+    }
+    .card {
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px #0001;
+    }
+    button {
+      padding: 12px 20px;
+      border: 0;
+      border-radius: 8px;
+      background: #087e68;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    pre {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      background: #eef2f3;
+      padding: 12px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>DU Bus Finder Admin POST Test</h2>
+    <p>Test ID:TEST-0bef57b3-2cbc-41d5-b458-ad11ee555966</p>
+
+    <button id="rejectBtn" onclick="sendReject()">
+      Reject Test Contribution
+    </button>
+
+    <h3>Response</h3>
+    <pre id="result">Waiting for request...</pre>
+  </div>
+
+  <script>
+    function sendReject() {
+      const button = document.getElementById("rejectBtn");
+      const output = document.getElementById("result");
+
+      button.disabled = true;
+      output.textContent = "Sending request...";
+
+      const payload = {
+        action: "admin_review",
+        id: "TEST-0bef57b3-2cbc-41d5-b458-ad11ee555966",
+        decision: "REJECT",
+        is_batch: false,
+        note: "Browser Admin POST test"
+      };
+
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = "<?= webAppUrl ?>";
+      form.target = "adminResponseFrame";
+
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "payload";
+      input.value = JSON.stringify(payload);
+
+      form.appendChild(input);
+      document.body.appendChild(form);
+
+      const frame = document.createElement("iframe");
+      frame.name = "adminResponseFrame";
+      frame.style.display = "none";
+      document.body.appendChild(frame);
+
+      frame.onload = function() {
+        try {
+          const response = frame.contentDocument.body.innerText;
+          output.textContent = response || "Response received.";
+        } catch (error) {
+          output.textContent =
+            "Request submitted. Cross-origin response cannot be read here. Check Admin Pending API.";
+        }
+        button.disabled = false;
+      };
+
+      form.submit();
+    }
+  </script>
+</body>
+</html>

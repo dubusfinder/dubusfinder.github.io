@@ -1,0 +1,936 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DU Bus Finder Admin Dashboard</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      background: #f4f7f8;
+      color: #172b3a;
+    }
+
+    .container { max-width: 1000px; margin: auto; }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 22px;
+    }
+
+    h1 { font-size: 25px; margin: 0; }
+
+    .subtitle {
+      color: #687b87;
+      margin-top: 7px;
+      font-size: 14px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 11px 17px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    button:disabled { opacity: .5; cursor: not-allowed; }
+
+    .refresh { background: #e3eeeb; color: #087e68; }
+
+    .stats {
+      background: white;
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 10px #00000008;
+    }
+
+    .stats strong {
+      display: block;
+      font-size: 30px;
+      margin-top: 6px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 10px #00000008;
+      overflow-wrap: anywhere;
+    }
+
+    .card h2 { font-size: 17px; margin: 0 0 12px; }
+
+    .meta {
+      color: #687b87;
+      font-size: 13px;
+      line-height: 1.8;
+    }
+
+    .stop {
+      background: #f5f8f8;
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 10px;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .map-heading { font-size: 16px; margin: 20px 0 10px; }
+
+    .map {
+      width: 100%;
+      height: 300px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #e8eeee;
+      z-index: 1;
+    }
+
+    .map-help {
+      font-size: 13px;
+      color: #687b87;
+      margin: 9px 0;
+      line-height: 1.6;
+    }
+
+    .no-location {
+      background: #f5f8f8;
+      color: #687b87;
+      border-radius: 8px;
+      padding: 18px;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 75px;
+      resize: vertical;
+      padding: 12px;
+      border: 1px solid #dce5e4;
+      border-radius: 8px;
+      font: inherit;
+      margin-top: 15px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #dce5e4;
+      border-radius: 7px;
+      font: inherit;
+      background: white;
+      color: #172b3a;
+      margin-top: 5px;
+    }
+
+    .field { margin-top: 10px; }
+
+    .field label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      color: #425763;
+    }
+
+    .edit-stop {
+      background: #f5f8f8;
+      padding: 14px;
+      border-radius: 9px;
+      margin-top: 12px;
+      border: 1px solid #e5eceb;
+    }
+
+    .edit-stop h3 { font-size: 15px; margin: 0 0 10px; }
+
+    .coordinates {
+      font-size: 12px;
+      color: #687b87;
+      margin-top: 7px;
+      overflow-wrap: anywhere;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .approve { background: #087e68; color: white; }
+    .reject { background: #b83232; color: white; }
+    .edit { background: #2367a5; color: white; }
+    .save { background: #087e68; color: white; }
+    .cancel { background: #e8eeee; color: #344b56; }
+
+    .empty, .message {
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      text-align: center;
+      color: #687b87;
+    }
+
+    .error { color: #b83232; }
+    .success { color: #087e68; }
+
+    .hidden { display: none !important; }
+
+    .editing-label {
+      display: inline-block;
+      background: #e5f1ed;
+      color: #087e68;
+      padding: 5px 9px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    @media(max-width: 600px) {
+      body { padding: 13px; }
+      h1 { font-size: 21px; }
+      .card { padding: 15px; }
+      .actions button { flex: 1; }
+      .map { height: 260px; }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <header>
+    <div>
+      <h1>DU BUS FINDER</h1>
+      <div class="subtitle">Admin Contribution Dashboard</div>
+    </div>
+    <button class="refresh" id="refreshButton">Refresh</button>
+  </header>
+
+  <div class="stats">
+    Pending Contributions
+    <strong id="pendingCount">—</strong>
+  </div>
+
+  <div id="message" class="message">Loading contributions...</div>
+  <div id="contributions"></div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+
+  let currentData = [];
+  let activeMaps = [];
+  let batchStates = {};
+
+  const messageEl = document.getElementById("message");
+  const contributionsEl = document.getElementById("contributions");
+
+  function esc(value) {
+    return String(value ?? "").replace(/[&<>"']/g, c => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    })[c]);
+  }
+
+  function validCoordinates(item) {
+    const lat = Number(item.latitude);
+    const lng = Number(item.longitude);
+
+    return (
+      String(item.latitude ?? "").trim() !== "" &&
+      String(item.longitude ?? "").trim() !== "" &&
+      Number.isFinite(lat) &&
+      Number.isFinite(lng) &&
+      lat >= -90 && lat <= 90 &&
+      lng >= -180 && lng <= 180
+    );
+  }
+
+  function loadData() {
+    messageEl.textContent = "Loading contributions...";
+    contributionsEl.innerHTML = "";
+
+    activeMaps.forEach(map => map.remove());
+    activeMaps = [];
+    batchStates = {};
+
+    google.script.run
+      .withSuccessHandler(renderData)
+      .withFailureHandler(showError)
+      .getAdminDashboardData();
+  }
+
+  function renderData(result) {
+
+    if (!result || result.success !== true) {
+      showError({
+        message: result?.error || "Unable to load data."
+      });
+      return;
+    }
+
+    currentData = result.data || [];
+
+    document.getElementById("pendingCount").textContent =
+      result.total_pending ?? currentData.length;
+
+    if (!currentData.length) {
+      messageEl.textContent = "No pending contributions.";
+      contributionsEl.innerHTML = "";
+      return;
+    }
+
+    messageEl.textContent = "";
+
+    const groups = {};
+
+    currentData.forEach(item => {
+      const key = item.batch_id || item.contribution_id;
+
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(item);
+    });
+
+    const groupEntries = Object.entries(groups);
+
+    contributionsEl.innerHTML = groupEntries.map(
+      ([batchId, rows], index) => {
+
+        const first = rows[0];
+
+        const stops = rows.map((item, stopIndex) => `
+          <div class="stop">
+            <strong>
+              Stop ${stopIndex + 1}:
+              ${esc(item.stopage_name || "Unnamed")}
+            </strong>
+
+            <div>Operation: ${esc(item.operation || "")}</div>
+            <div>Stop ID: ${esc(item.stop_id || "New stop")}</div>
+            <div>Stopage time: ${esc(item.stopage_time || "Not provided")}</div>
+            <div>Latitude: ${esc(item.latitude ?? "Not provided")}</div>
+            <div>Longitude: ${esc(item.longitude ?? "Not provided")}</div>
+            <div>Sequence: ${esc(item.sequence || "")}</div>
+          </div>
+        `).join("");
+
+        const editStops = rows.map((item, stopIndex) => {
+
+          const operation = String(item.operation || "ADD").toUpperCase();
+          const isRemove = operation === "REMOVE";
+
+          return `
+            <div class="edit-stop">
+              <h3>Stop ${stopIndex + 1} — ${esc(operation)}</h3>
+
+              ${
+                isRemove
+                  ? `<div class="map-help">This stop will be removed. No editing is needed.</div>`
+                  : `
+                    <div class="field">
+                      <label>Stopage Name</label>
+                      <input
+                        type="text"
+                        class="edit-name"
+                        data-row="${stopIndex}"
+                        value="${esc(item.stopage_name || "")}"
+                        placeholder="Stopage name">
+                    </div>
+
+                    <div class="field">
+                      <label>Stopage Time (Optional)</label>
+                      <input
+                        type="text"
+                        class="edit-time"
+                        data-row="${stopIndex}"
+                        value="${esc(item.stopage_time || "")}"
+                        placeholder="e.g. 08:30 AM">
+                    </div>
+
+                    <div class="coordinates" id="coords-${index}-${stopIndex}">
+                      Location:
+                      ${
+                        validCoordinates(item)
+                          ? `${esc(item.latitude)}, ${esc(item.longitude)}`
+                          : "Not set"
+                      }
+                    </div>
+                  `
+              }
+            </div>
+          `;
+        }).join("");
+
+        const stopOptions = rows.map((item, stopIndex) => {
+          if (String(item.operation || "ADD").toUpperCase() === "REMOVE") {
+            return "";
+          }
+
+          return `
+            <option value="${stopIndex}">
+              Stop ${stopIndex + 1}: ${esc(item.stopage_name || "Unnamed")}
+            </option>
+          `;
+        }).join("");
+
+        return `
+          <section class="card" id="batch-card-${index}">
+
+            <h2>Contribution Batch</h2>
+
+            <div class="meta">
+              <div><strong>Batch ID:</strong> ${esc(batchId)}</div>
+              <div><strong>Bus ID:</strong> ${esc(first.bus_id)}</div>
+              <div><strong>Direction:</strong> ${esc(first.direction)}</div>
+              <div><strong>Trip ID:</strong> ${esc(first.trip_id)}</div>
+              <div><strong>Trip time:</strong> ${esc(first.trip_time)}</div>
+              <div><strong>Contributor:</strong> ${esc(first.email)}</div>
+              <div><strong>Submitted:</strong> ${esc(first.submitted_at)}</div>
+              <div><strong>Contribution type:</strong> ${esc(first.contribution_type)}</div>
+              <div><strong>Number of entries:</strong> ${rows.length}</div>
+            </div>
+
+            <div class="normal-view" id="normal-${index}">
+              <h3>Stopage Details</h3>
+              ${stops}
+            </div>
+
+            <div class="edit-view hidden" id="edit-${index}">
+              <div class="editing-label">EDIT MODE</div>
+
+              <h3>Stopage Details — Edit</h3>
+              ${editStops}
+
+              <h3 class="map-heading">Select Stopage for Map Editing</h3>
+
+              <div class="field">
+                <label>Select which stopage location to edit</label>
+                <select id="map-select-${index}">
+                  ${stopOptions}
+                </select>
+              </div>
+
+              <div class="map-help">
+                Map-এ click করলে selected stopage-এর location set হবে।
+                Marker drag করেও location পরিবর্তন করতে পারবে।
+                Location পরিবর্তন না করলে আগের location থাকবে।
+              </div>
+            </div>
+
+            <h3 class="map-heading">Stopage Map Location</h3>
+            <div class="map" id="contribution-map-${index}"></div>
+
+            <textarea
+              id="note-${index}"
+              placeholder="Admin note (optional)..."></textarea>
+
+            <div class="actions normal-actions" id="normal-actions-${index}">
+
+              <button
+                class="edit"
+                data-action="edit"
+                data-index="${index}">
+                Edit Batch
+              </button>
+
+              <button
+                class="approve"
+                data-batch="${esc(batchId)}"
+                data-index="${index}"
+                data-decision="APPROVE">
+                Approve Batch
+              </button>
+
+              <button
+                class="reject"
+                data-batch="${esc(batchId)}"
+                data-index="${index}"
+                data-decision="REJECT">
+                Reject Batch
+              </button>
+
+            </div>
+
+            <div class="actions hidden" id="edit-actions-${index}">
+              <button
+                class="save"
+                data-action="save-edit"
+                data-index="${index}">
+                Save & Apply
+              </button>
+
+              <button
+                class="cancel"
+                data-action="cancel-edit"
+                data-index="${index}">
+                Cancel
+              </button>
+            </div>
+
+          </section>
+        `;
+      }
+    ).join("");
+
+    groupEntries.forEach(([batchId, rows], index) => {
+
+      batchStates[index] = {
+        batchId: batchId,
+        rows: rows,
+        map: null,
+        markers: {},
+        editing: false
+      };
+
+      initializeMap(
+        document.getElementById(`contribution-map-${index}`),
+        rows,
+        index
+      );
+    });
+
+    attachActions();
+  }
+
+  function initializeMap(mapElement, rows, batchIndex) {
+
+    if (typeof L === "undefined") {
+      mapElement.innerHTML = "Map library could not be loaded.";
+      return;
+    }
+
+    const state = batchStates[batchIndex];
+
+    const map = L.map(mapElement).setView(
+      [23.7280, 90.3980],
+      14
+    );
+
+    state.map = map;
+
+    L.tileLayer(
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap contributors"
+      }
+    ).addTo(map);
+
+    const bounds = [];
+
+    rows.forEach((item, stopIndex) => {
+
+      if (!validCoordinates(item)) return;
+
+      const lat = Number(item.latitude);
+      const lng = Number(item.longitude);
+
+      const marker = L.marker(
+        [lat, lng],
+        { draggable: false }
+      ).addTo(map);
+
+      state.markers[stopIndex] = marker;
+
+      marker.bindPopup(
+        `<strong>${esc(item.stopage_name || "Unnamed Stop")}</strong>
+         <br>Stopage Time: ${esc(item.stopage_time || "Not provided")}
+         <br>Latitude: ${lat}
+         <br>Longitude: ${lng}`
+      );
+
+      marker.on("dragend", function() {
+
+        if (!state.editing) return;
+
+        const position = marker.getLatLng();
+
+        updateLocation(
+          batchIndex,
+          stopIndex,
+          position.lat,
+          position.lng
+        );
+      });
+
+      bounds.push([lat, lng]);
+    });
+
+    map.on("click", function(event) {
+
+      if (!state.editing) return;
+
+      const select = document.getElementById(
+        `map-select-${batchIndex}`
+      );
+
+      if (!select || select.value === "") {
+        alert("First select a stopage.");
+        return;
+      }
+
+      const stopIndex = Number(select.value);
+
+      updateLocation(
+        batchIndex,
+        stopIndex,
+        event.latlng.lat,
+        event.latlng.lng
+      );
+    });
+
+    if (bounds.length === 1) {
+      map.setView(bounds[0], 17);
+    } else if (bounds.length > 1) {
+      map.fitBounds(bounds, {
+        padding: [30, 30],
+        maxZoom: 17
+      });
+    }
+
+    activeMaps.push(map);
+
+    setTimeout(() => map.invalidateSize(), 250);
+  }
+
+  function updateLocation(batchIndex, stopIndex, latitude, longitude) {
+
+    const state = batchStates[batchIndex];
+    const item = state.rows[stopIndex];
+
+    if (!item) return;
+
+    item.latitude = Number(latitude);
+    item.longitude = Number(longitude);
+
+    let marker = state.markers[stopIndex];
+
+    if (!marker) {
+
+      marker = L.marker(
+        [latitude, longitude],
+        { draggable: true }
+      ).addTo(state.map);
+
+      state.markers[stopIndex] = marker;
+
+      marker.on("dragend", function() {
+
+        const position = marker.getLatLng();
+
+        updateLocation(
+          batchIndex,
+          stopIndex,
+          position.lat,
+          position.lng
+        );
+      });
+
+    } else {
+
+      marker.setLatLng([latitude, longitude]);
+      marker.setPopupContent(
+        `<strong>${esc(item.stopage_name || "Unnamed Stop")}</strong>
+         <br>Latitude: ${latitude}
+         <br>Longitude: ${longitude}`
+      );
+    }
+
+    marker.dragging.enable();
+
+    document.getElementById(
+      `coords-${batchIndex}-${stopIndex}`
+    ).textContent =
+      `Location: ${Number(latitude).toFixed(6)}, ${Number(longitude).toFixed(6)}`;
+
+    marker.openPopup();
+  }
+
+  function setEditMode(index, enabled) {
+
+    const state = batchStates[index];
+    if (!state) return;
+
+    state.editing = enabled;
+
+    document.getElementById(`normal-${index}`)
+      .classList.toggle("hidden", enabled);
+
+    document.getElementById(`edit-${index}`)
+      .classList.toggle("hidden", !enabled);
+
+    document.getElementById(`normal-actions-${index}`)
+      .classList.toggle("hidden", enabled);
+
+    document.getElementById(`edit-actions-${index}`)
+      .classList.toggle("hidden", !enabled);
+
+    Object.values(state.markers).forEach(marker => {
+
+      if (enabled) {
+        marker.dragging.enable();
+      } else {
+        marker.dragging.disable();
+      }
+    });
+
+    setTimeout(() => state.map.invalidateSize(), 200);
+  }
+
+  function attachActions() {
+
+    contributionsEl.querySelectorAll("[data-action]").forEach(button => {
+
+      button.addEventListener("click", function() {
+
+        const index = Number(this.dataset.index);
+        const action = this.dataset.action;
+
+        if (action === "edit") {
+          setEditMode(index, true);
+        }
+
+        if (action === "cancel-edit") {
+          const confirmed = confirm(
+            "Cancel editing? Your unsaved changes will be discarded."
+          );
+
+          if (confirmed) loadData();
+        }
+
+        if (action === "save-edit") {
+          saveEdit(index, this);
+        }
+      });
+    });
+
+    contributionsEl.querySelectorAll("[data-decision]").forEach(button => {
+
+      button.addEventListener("click", function() {
+
+        review(
+          this.dataset.batch,
+          this.dataset.decision,
+          Number(this.dataset.index),
+          this
+        );
+      });
+    });
+  }
+
+  function saveEdit(index, button) {
+
+    const state = batchStates[index];
+
+    if (!state) return;
+
+    const rows = state.rows;
+
+    const edits = rows.map((item, stopIndex) => {
+
+      const operation = String(
+        item.operation || "ADD"
+      ).toUpperCase();
+
+      if (operation === "REMOVE") {
+        return {
+          contribution_id: item.contribution_id,
+          stopage_name: item.stopage_name || "",
+          stopage_time: item.stopage_time || "",
+          latitude: item.latitude ?? "",
+          longitude: item.longitude ?? ""
+        };
+      }
+
+      const nameInput = document.querySelector(
+        `.edit-name[data-row="${stopIndex}"]`
+      );
+
+      const timeInput = document.querySelector(
+        `.edit-time[data-row="${stopIndex}"]`
+      );
+
+      const name = nameInput ? nameInput.value.trim() : "";
+      const time = timeInput ? timeInput.value.trim() : "";
+
+      if (operation === "ADD" && !name) {
+        alert(`Stop ${stopIndex + 1}: Stopage Name is required for a new stop.`);
+        if (nameInput) nameInput.focus();
+        return null;
+      }
+
+      return {
+        contribution_id: item.contribution_id,
+        stopage_name: name,
+        stopage_time: time,
+        latitude: item.latitude ?? "",
+        longitude: item.longitude ?? ""
+      };
+    });
+
+    if (edits.some(item => item === null)) return;
+
+    const note = document.getElementById(`note-${index}`).value;
+
+    const confirmed = confirm(
+      "Save and apply these edits directly to Stops and BusSchedule? This batch will become Approved."
+    );
+
+    if (!confirmed) return;
+
+    const card = document.getElementById(`batch-card-${index}`);
+    const buttons = card.querySelectorAll("button");
+
+    buttons.forEach(b => b.disabled = true);
+    button.textContent = "Applying...";
+
+    google.script.run
+
+      .withSuccessHandler(result => {
+
+        if (result && result.success) {
+
+          alert(
+            "Edit & Apply successful. Reviewed: " +
+            result.reviewed_count
+          );
+
+          loadData();
+
+        } else {
+
+          alert(
+            "Edit failed: " +
+            (result?.error || "Unknown error")
+          );
+
+          buttons.forEach(b => b.disabled = false);
+          button.textContent = "Save & Apply";
+        }
+      })
+
+      .withFailureHandler(error => {
+
+        alert("Edit failed: " + error.message);
+
+        buttons.forEach(b => b.disabled = false);
+        button.textContent = "Save & Apply";
+      })
+
+      .adminEditApplyBatch(
+        state.batchId,
+        edits,
+        note
+      );
+  }
+
+  function review(batchId, decision, index, button) {
+
+    const note = document.getElementById(
+      "note-" + index
+    ).value;
+
+    const confirmed = confirm(
+      decision === "APPROVE"
+        ? "Approve this complete contribution batch?"
+        : "Reject this complete contribution batch?"
+    );
+
+    if (!confirmed) return;
+
+    const card = document.getElementById(
+      "batch-card-" + index
+    );
+
+    const buttons = card.querySelectorAll("button");
+
+    buttons.forEach(b => b.disabled = true);
+    button.textContent = "Processing...";
+
+    google.script.run
+
+      .withSuccessHandler(result => {
+
+        if (result && result.success) {
+
+          alert(
+            decision + " successful. Reviewed: " +
+            result.reviewed_count
+          );
+
+          loadData();
+
+        } else {
+
+          alert(
+            "Review failed: " +
+            (result?.error || "Unknown error")
+          );
+
+          buttons.forEach(b => b.disabled = false);
+
+          button.textContent =
+            decision === "APPROVE"
+              ? "Approve Batch"
+              : "Reject Batch";
+        }
+      })
+
+      .withFailureHandler(error => {
+
+        alert("Error: " + error.message);
+
+        buttons.forEach(b => b.disabled = false);
+
+        button.textContent =
+          decision === "APPROVE"
+            ? "Approve Batch"
+            : "Reject Batch";
+      })
+
+      .adminReviewBatch(batchId, decision, note);
+  }
+
+  function showError(error) {
+
+    messageEl.innerHTML =
+      '<span class="error">Error: ' +
+      esc(error.message || "Unable to load dashboard.") +
+      '</span>';
+  }
+
+  document
+    .getElementById("refreshButton")
+    .addEventListener("click", loadData);
+
+  loadData();
+
+</script>
+
+</body>
+</html>
+s

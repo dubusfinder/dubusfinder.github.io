@@ -1,0 +1,2038 @@
+
+/**
+ * =========================================
+ * DU BUS FINDER - COMPLETE BACKEND API
+ * Public API + Contributions + Admin Review
+ * =========================================
+ */
+
+const SHEETS = {
+  buses: "Buses",
+  stops: "Stops",
+  schedule: "BusSchedule",
+  serviceDays: "ServiceDays"
+};
+
+const CONTRIBUTION_CONFIG = {
+  SHEET_NAME: "Contributions",
+  MAX_STOPS_PER_SUBMISSION: 20,
+  MAX_SUBMISSIONS_PER_EMAIL: 5,
+  RATE_WINDOW_SECONDS: 600,
+  DUPLICATE_WINDOW_SECONDS: 120
+};
+
+
+/* =========================================
+   1. GENERAL DATABASE HELPERS
+========================================= */
+
+function getSheetData(sheetName) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
+
+  if (!sheet) {
+    throw new Error("Sheet not found: " + sheetName);
+  }
+
+  const values = sheet.getDataRange().getDisplayValues();
+
+  if (values.length < 2) return [];
+
+  const headers = values[0].map(h => String(h).trim());
+
+  return values.slice(1)
+    .filter(row => row.some(cell => String(cell).trim() !== ""))
+    .map(row => {
+      const obj = {};
+
+      headers.forEach((header, index) => {
+        if (header) obj[header] = row[index] || "";
+      });
+
+      return obj;
+    });
+}
+
+function getDatabase() {
+  return {
+    success: true,
+    buses: getSheetData(SHEETS.buses),
+    stops: getSheetData(SHEETS.stops),
+    schedules: getSheetData(SHEETS.schedule),
+    serviceDays: getSheetData(SHEETS.serviceDays)
+  };
+}
+
+
+/* =========================================
+   2. PUBLIC GET API
+========================================= */
+
+
+function doGet(e) {
+  try {
+    const params = e && e.parameter ? e.parameter : {};
+    const action = String(params.action || "all").toLowerCase();
+
+    let result;
+
+    if (action === "all") {
+      result = getDatabase();
+
+    } else if (action === "buses") {
+      result = {
+        success: true,
+        data: getSheetData(SHEETS.buses)
+      };
+
+    } else if (action === "stops") {
+      result = {
+        success: true,
+        data: getSheetData(SHEETS.stops)
+      };
+
+    } else if (action === "schedule") {
+      result = {
+        success: true,
+        data: getSheetData(SHEETS.schedule)
+      };
+
+    } else if (action === "servicedays") {
+      result = {
+        success: true,
+        data: getSheetData(SHEETS.serviceDays)
+      };
+
+    } else if (action === "admin_pending") {
+      result = getAdminPendingContributions_();
+    
+    } else if (action === "admin_dashboard") {
+  const auth = getAdminPendingContributions_();
+
+  if (!auth || auth.success !== true) {
+    throw new Error("Unauthorized");
+  }
+
+  const template = HtmlService.createTemplateFromFile(
+    "AdminDashboard"
+  );
+
+  return template.evaluate()
+    .setTitle("DU Bus Finder - Admin Dashboard");
+
+    } else if (action === "admin_post_test_page") {
+      const auth = getAdminPendingContributions_();
+
+      if (!auth || auth.success !== true) {
+        throw new Error("Unauthorized");
+      }
+
+      const template = HtmlService.createTemplateFromFile(
+        "AdminPostTest"
+      );
+
+      template.webAppUrl = ScriptApp.getService().getUrl();
+
+      return template.evaluate()
+        .setTitle("DU Bus Finder Admin POST Test");
+
+    } else {
+      throw new Error("Invalid action");
+    }
+
+    const json = JSON.stringify(result);
+    const callback = params.callback;
+
+    if (
+      callback &&
+      /^[a-zA-Z_$][0-9a-zA-Z_$\.]*$/.test(callback)
+    ) {
+      return ContentService
+        .createTextOutput(callback + "(" + json + ");")
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
+
+    return ContentService
+      .createTextOutput(json)
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: error.message || "Request failed."
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
+
+/* =========================================
+   3. CONTRIBUTION HELPERS
+========================================= */
+
+function contributionResponse(data) {
+  return ContentService
+    .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function contributionHash(value) {
+  const bytes = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    String(value),
+    Utilities.Charset.UTF_8
+  );
+
+  return Utilities.base64EncodeWebSafe(bytes)
+    .replace(/=+$/, "");
+}
+
+function validateContributionEmail(email) {
+  return /^[A-Za-z0-9._%+-]+-[0-9]{10}@subject\.du\.ac\.bd$/i
+    .test(String(email || "").trim());
+}
+
+function contributionNumber(value, fieldName, required) {
+  if (value === "" || value === null || value === undefined) {
+    if (required) {
+      throw new Error(fieldName + " is required.");
+    }
+
+    return "";
+  }
+
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    throw new Error("Invalid " + fieldName + ".");
+  }
+
+  return number;
+}
+
+
+/* =========================================
+   4. PUBLIC CONTRIBUTION POST API
+========================================= */
+
+function doPost(e) {
+  try {
+    const rawPayload = e && e.parameter && e.parameter.payload;
+
+    if (!rawPayload) {
+      throw new Error("Missing contribution payload.");
+    }
+
+    const payload = JSON.parse(rawPayload);
+          /* =====================================
+       ADMIN APPROVE / REJECT API
+    ===================================== */
+
+    if (payload.action === "admin_review") {
+
+      // Authentication is checked inside adminReview_()
+      const id = String(payload.id || "").trim();
+
+      const decision = String(payload.decision || "")
+        .trim()
+        .toUpperCase();
+
+      const isBatch = payload.is_batch === true;
+      const note = String(payload.note || "").trim();
+
+      if (!id) {
+        throw new Error("Contribution ID or Batch ID is required.");
+      }
+
+      if (!["APPROVE", "REJECT"].includes(decision)) {
+        throw new Error("Invalid review decision.");
+      }
+
+      const result = isBatch
+        ? adminReviewBatch(id, decision, note)
+        : adminReviewContribution(id, decision, note);
+
+      return contributionResponse(result);
+    }
+    if (payload.website) {
+      return contributionResponse({
+        success: false,
+        error: "Invalid submission."
+      });
+    }
+
+    const email = String(payload.email || "")
+      .trim()
+      .toLowerCase();
+
+    if (!validateContributionEmail(email)) {
+      throw new Error("Use the required DU email format.");
+    }
+
+    const busId = String(payload.bus_id || "").trim();
+    const direction = String(payload.direction || "")
+      .trim()
+      .toUpperCase();
+
+    const tripId = String(payload.trip_id || "").trim();
+    const tripTime = String(payload.trip_time || "").trim();
+    const stops = payload.stops;
+
+    if (!busId) throw new Error("Bus is required.");
+
+    if (!["UP", "DOWN"].includes(direction)) {
+      throw new Error("Invalid direction.");
+    }
+
+    if (!tripId) throw new Error("Trip is required.");
+    if (!tripTime) throw new Error("Trip time is required.");
+
+    if (
+      !Array.isArray(stops) ||
+      stops.length < 1 ||
+      stops.length > CONTRIBUTION_CONFIG.MAX_STOPS_PER_SUBMISSION
+    ) {
+      throw new Error("Submit between 1 and 20 stopages.");
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    const busSheet = ss.getSheetByName(SHEETS.buses);
+    const contributionSheet = ss.getSheetByName(
+      CONTRIBUTION_CONFIG.SHEET_NAME
+    );
+
+    if (!busSheet || !contributionSheet) {
+      throw new Error("Required database sheet is missing.");
+    }
+
+    const buses = getSheetData(SHEETS.buses);
+
+    const selectedBus = buses.find(bus =>
+      String(bus.bus_id).trim() === busId
+    );
+
+    if (!selectedBus) {
+      throw new Error("Selected bus was not found.");
+    }
+
+    if (!String(selectedBus.bus_name || "").trim()) {
+      throw new Error("Selected bus has no bus name.");
+    }
+
+    const cleanStops = stops.map((stop, index) => {
+      const operation = String(stop.operation || "ADD")
+        .trim()
+        .toUpperCase();
+
+      if (!["ADD", "UPDATE", "REMOVE"].includes(operation)) {
+        throw new Error(
+          "Invalid operation at stopage " + (index + 1)
+        );
+      }
+
+      const targetSequence = contributionNumber(
+        stop.target_sequence,
+        "Target sequence",
+        operation !== "ADD"
+      );
+
+      const sequence = contributionNumber(
+        stop.sequence,
+        "Sequence",
+        operation !== "REMOVE"
+      );
+
+      const latitude = contributionNumber(
+        stop.latitude,
+        "Latitude",
+        false
+      );
+
+      const longitude = contributionNumber(
+        stop.longitude,
+        "Longitude",
+        false
+      );
+
+      if ((latitude === "") !== (longitude === "")) {
+        throw new Error(
+          "Both latitude and longitude are required together."
+        );
+      }
+
+      if (
+        latitude !== "" &&
+        (latitude < -90 || latitude > 90)
+      ) {
+        throw new Error("Latitude is out of range.");
+      }
+
+      if (
+        longitude !== "" &&
+        (longitude < -180 || longitude > 180)
+      ) {
+        throw new Error("Longitude is out of range.");
+      }
+
+      const stopageName = String(
+        stop.stopage_name || ""
+      ).trim();
+
+      if (operation !== "REMOVE" && !stopageName) {
+        throw new Error("Stopage name is required.");
+      }
+
+      if (
+        operation !== "REMOVE" &&
+        !String(stop.stopage_time || "").trim()
+      ) {
+        throw new Error("Stopage time is required.");
+      }
+
+      return {
+        operation: operation,
+        targetSequence: targetSequence,
+        sequence: sequence,
+        stopId: String(stop.stop_id || "").trim(),
+        stopageName: stopageName,
+        stopageTime: String(stop.stopage_time || "").trim(),
+        latitude: latitude,
+        longitude: longitude,
+        contributionType: String(
+          stop.contribution_type || "ROUTE"
+        ).trim().toUpperCase()
+      };
+    });
+
+    const lastColumn = contributionSheet.getLastColumn();
+
+    if (lastColumn < 1) {
+      throw new Error("Contributions header row is empty.");
+    }
+
+    const headers = contributionSheet
+      .getRange(1, 1, 1, lastColumn)
+      .getDisplayValues()[0]
+      .map(header => String(header).trim());
+
+    const requiredHeaders = [
+      "contribution_id",
+      "batch_id",
+      "submitted_at",
+      "email",
+      "bus_id",
+      "direction",
+      "trip_time",
+      "contribution_type",
+      "stop_id",
+      "stopage_name",
+      "stopage_time",
+      "latitude",
+      "longitude",
+      "status",
+      "admin_note",
+      "reviewed_at",
+      "reviewed_by",
+      "operation",
+      "trip_id",
+      "target_sequence",
+      "sequence"
+    ];
+
+    const missingHeaders = requiredHeaders.filter(
+      header => !headers.includes(header)
+    );
+
+    if (missingHeaders.length) {
+      throw new Error(
+        "Missing Contributions headers: " +
+        missingHeaders.join(", ")
+      );
+    }
+
+    const fingerprint = contributionHash(
+      JSON.stringify({
+        email,
+        busId,
+        direction,
+        tripId,
+        tripTime,
+        stops: cleanStops
+      })
+    );
+
+    const emailHash = contributionHash(email);
+    const cache = CacheService.getScriptCache();
+
+    const rateKey = "contrib_rate_" + emailHash;
+    const duplicateKey = "contrib_dup_" + fingerprint;
+
+    const lock = LockService.getScriptLock();
+    lock.waitLock(20000);
+
+    try {
+      if (cache.get(duplicateKey)) {
+        throw new Error(
+          "Duplicate submission detected. Please wait before trying again."
+        );
+      }
+
+      const currentCount = Number(cache.get(rateKey) || 0);
+
+      if (
+        currentCount >=
+        CONTRIBUTION_CONFIG.MAX_SUBMISSIONS_PER_EMAIL
+      ) {
+        throw new Error(
+          "Submission limit reached. Please try again later."
+        );
+      }
+
+      const now = new Date();
+      const submittedAt = now.toISOString();
+      const batchId = "BATCH-" + Utilities.getUuid();
+
+      const rows = cleanStops.map(stop => {
+        const record = {
+          contribution_id: "CON-" + Utilities.getUuid(),
+          batch_id: batchId,
+          submitted_at: submittedAt,
+          email: email,
+          bus_id: busId,
+          direction: direction,
+          trip_time: tripTime,
+          contribution_type: stop.contributionType,
+          stop_id: stop.stopId,
+          stopage_name: stop.stopageName,
+          stopage_time: stop.stopageTime,
+          latitude: stop.latitude,
+          longitude: stop.longitude,
+          status: "Pending",
+          admin_note: "",
+          reviewed_at: "",
+          reviewed_by: "",
+          operation: stop.operation,
+          trip_id: tripId,
+          target_sequence: stop.targetSequence,
+          sequence: stop.sequence
+        };
+
+        return headers.map(header =>
+          Object.prototype.hasOwnProperty.call(record, header)
+            ? record[header]
+            : ""
+        );
+      });
+
+      const startRow = contributionSheet.getLastRow() + 1;
+
+      contributionSheet
+        .getRange(startRow, 1, rows.length, headers.length)
+        .setValues(rows);
+
+      cache.put(
+        rateKey,
+        String(currentCount + 1),
+        CONTRIBUTION_CONFIG.RATE_WINDOW_SECONDS
+      );
+
+      cache.put(
+        duplicateKey,
+        "1",
+        CONTRIBUTION_CONFIG.DUPLICATE_WINDOW_SECONDS
+      );
+
+      return contributionResponse({
+        success: true,
+        message: "Contribution submitted for admin review.",
+        batch_id: batchId,
+        submitted_count: rows.length,
+        status: "Pending"
+      });
+
+    } finally {
+      lock.releaseLock();
+    }
+
+  } catch (error) {
+    return contributionResponse({
+      success: false,
+      error: error.message || "Submission failed."
+    });
+  }
+}
+
+
+/* =========================================
+   5. ADMIN AUTHENTICATION
+========================================= */
+
+function getAdminIdentity_() {
+  const expectedEmail = String(
+    PropertiesService.getScriptProperties()
+      .getProperty("ADMIN_EMAIL") || ""
+  ).trim().toLowerCase();
+
+  const activeEmail = String(
+    Session.getActiveUser().getEmail() || ""
+  ).trim().toLowerCase();
+
+  if (!expectedEmail) {
+    throw new Error("ADMIN_EMAIL is not configured.");
+  }
+
+  if (!activeEmail) {
+    throw new Error(
+      "Google account identity is unavailable. " +
+      "Use an admin deployment that executes as the accessing user."
+    );
+  }
+
+  if (activeEmail !== expectedEmail) {
+    throw new Error("Unauthorized admin account.");
+  }
+
+  return activeEmail;
+}
+
+function testAdminIdentity() {
+  const email = getAdminIdentity_();
+
+  Logger.log("Admin identity verified: " + email);
+}
+
+
+/* =========================================
+   6. ADMIN PENDING CONTRIBUTIONS
+========================================= */
+
+function getAdminPendingContributions_() {
+  const adminEmail = getAdminIdentity_();
+
+  const contributions = getSheetData(
+    CONTRIBUTION_CONFIG.SHEET_NAME
+  );
+
+  const pending = contributions.filter(row =>
+    String(row.status || "").trim().toLowerCase() === "pending"
+  );
+
+  return {
+    success: true,
+    admin_email: adminEmail,
+    total_pending: pending.length,
+    data: pending
+  };
+}
+
+function testAdminPending() {
+  const result = getAdminPendingContributions_();
+
+  Logger.log(JSON.stringify(result, null, 2));
+}
+
+
+/* =========================================
+   7. ADMIN TABLE HELPERS
+========================================= */
+
+function adminLoadTable_(sheetName) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet()
+    .getSheetByName(sheetName);
+
+  if (!sheet) {
+    throw new Error("Missing sheet: " + sheetName);
+  }
+
+  const lastColumn = sheet.getLastColumn();
+
+  if (lastColumn < 1) {
+    throw new Error("Missing headers: " + sheetName);
+  }
+
+  const headers = sheet
+    .getRange(1, 1, 1, lastColumn)
+    .getDisplayValues()[0]
+    .map(h => String(h).trim());
+
+  const values = sheet.getLastRow() > 1
+    ? sheet.getRange(
+        2, 1,
+        sheet.getLastRow() - 1,
+        lastColumn
+      ).getValues()
+    : [];
+
+  return {
+    sheet: sheet,
+    headers: headers,
+    values: values
+  };
+}
+
+function adminCol_(table, name) {
+  const index = table.headers.indexOf(name);
+
+  if (index < 0) {
+    throw new Error("Missing column: " + name);
+  }
+
+  return index;
+}
+
+function adminGet_(table, row, name) {
+  const index = table.headers.indexOf(name);
+
+  return index < 0 ? "" : row[index];
+}
+
+function adminTimeToSheetValue_(value) {
+  if (value === "" || value == null) return "";
+
+  let hours;
+  let minutes;
+  let seconds = 0;
+
+  if (value instanceof Date) {
+    hours = value.getHours();
+    minutes = value.getMinutes();
+    seconds = value.getSeconds();
+
+  } else if (typeof value === "number") {
+    if (value >= 0 && value < 1) return value;
+    throw new Error("Invalid stopage time value.");
+
+  } else {
+    const match = String(value).trim().match(
+      /^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i
+    );
+
+    if (!match) {
+      throw new Error("Invalid stopage time: " + value);
+    }
+
+    hours = Number(match[1]);
+    minutes = Number(match[2]);
+    seconds = Number(match[3] || 0);
+
+    const period = (match[4] || "").toUpperCase();
+
+    if (minutes > 59 || seconds > 59) {
+      throw new Error("Invalid stopage time: " + value);
+    }
+
+    if (period) {
+      if (hours < 1 || hours > 12) {
+        throw new Error("Invalid stopage time: " + value);
+      }
+
+      if (period === "AM" && hours === 12) hours = 0;
+      if (period === "PM" && hours !== 12) hours += 12;
+
+    } else if (hours > 23) {
+      throw new Error("Invalid stopage time: " + value);
+    }
+  }
+
+  return (
+    hours * 3600 +
+    minutes * 60 +
+    seconds
+  ) / 86400;
+}
+
+
+function adminPut_(table, row, name, value) {
+  const index = adminCol_(table, name);
+
+  if (name === "stopage_time") {
+    value = adminTimeToSheetValue_(value);
+  }
+
+  row[index] = value;
+}
+
+function adminMakeRow_(table, record) {
+  return table.headers.map(header =>
+    Object.prototype.hasOwnProperty.call(record, header)
+      ? record[header]
+      : ""
+  );
+}
+
+
+/* =========================================
+   8. SCHEDULE TARGET FINDER
+========================================= */
+
+function adminFindScheduleTarget_(scheduleTable, contribution) {
+  const tripIndex = adminCol_(scheduleTable, "trip_id");
+  const sequenceIndex = adminCol_(scheduleTable, "sequence");
+  const stopIdIndex = scheduleTable.headers.indexOf("stop_id");
+
+  const targetSequence = Number(contribution.target_sequence);
+  const targetTrip = String(contribution.trip_id).trim();
+  const targetStopId = String(contribution.stop_id || "").trim();
+
+  const matches = [];
+
+  scheduleTable.values.forEach((row, index) => {
+    const sameTrip =
+      String(row[tripIndex]).trim() === targetTrip;
+
+    const sameSequence =
+      Number(row[sequenceIndex]) === targetSequence;
+
+    const sameStop = !targetStopId ||
+      (
+        stopIdIndex >= 0 &&
+        String(row[stopIdIndex]).trim() === targetStopId
+      );
+
+    if (sameTrip && sameSequence && sameStop) {
+      matches.push({
+        rowNumber: index + 2,
+        values: row
+      });
+    }
+  });
+
+  if (matches.length !== 1) {
+    throw new Error(
+      "Could not uniquely find target schedule row for " +
+      contribution.contribution_id
+    );
+  }
+
+  return matches[0];
+}
+
+
+/* =========================================
+   9. SAFE APPROVAL APPLY ENGINE
+   Sequence-aware ADD / UPDATE / REMOVE
+========================================= */
+
+
+function adminApplyApproved_(contributions) {
+
+  if (!contributions.length) {
+    throw new Error("No contributions supplied.");
+  }
+
+  const schedule = adminLoadTable_(SHEETS.schedule);
+  const stops = adminLoadTable_(SHEETS.stops);
+  const buses = adminLoadTable_(SHEETS.buses);
+
+  [
+    "bus_name",
+    "direction",
+    "trip_time",
+    "stopage_time",
+    "stopage",
+    "sequence",
+    "verification_status",
+    "trip_id",
+    "stop_id"
+  ].forEach(name => adminCol_(schedule, name));
+
+  [
+    "stop_id",
+    "stopage_name",
+    "latitude",
+    "longitude"
+  ].forEach(name => adminCol_(stops, name));
+
+  const busIdIndex = adminCol_(buses, "bus_id");
+  const busNameIndex = adminCol_(buses, "bus_name");
+
+  const tripIds = [
+    ...new Set(contributions.map(c =>
+      String(c.trip_id || "").trim()
+    ))
+  ];
+
+  const busIds = [
+    ...new Set(contributions.map(c =>
+      String(c.bus_id || "").trim()
+    ))
+  ];
+
+  if (tripIds.length !== 1 || !tripIds[0]) {
+    throw new Error("All contributions must belong to one trip.");
+  }
+
+  if (busIds.length !== 1 || !busIds[0]) {
+    throw new Error("All contributions must belong to one bus.");
+  }
+
+  const tripId = tripIds[0];
+  const busId = busIds[0];
+
+  const busMatches = buses.values.filter(row =>
+    String(row[busIdIndex]).trim() === busId
+  );
+
+  if (busMatches.length !== 1) {
+    throw new Error("Bus could not be uniquely identified.");
+  }
+
+  const busName = String(
+    busMatches[0][busNameIndex]
+  ).trim();
+
+  const plans = contributions.map(c => {
+
+    const operation = String(c.operation || "ADD")
+      .trim()
+      .toUpperCase();
+
+    if (!["ADD", "UPDATE", "REMOVE"].includes(operation)) {
+      throw new Error("Invalid operation: " + operation);
+    }
+
+    if (
+      String(c.trip_id).trim() !== tripId ||
+      String(c.bus_id).trim() !== busId
+    ) {
+      throw new Error("Contribution bus or trip mismatch.");
+    }
+
+    const target = operation === "ADD"
+      ? null
+      : adminFindScheduleTarget_(schedule, c);
+
+    if (operation !== "REMOVE") {
+
+      // UPDATE: unchanged name and time retain existing schedule values.
+      if (operation === "UPDATE") {
+
+        const oldName = adminGet_(
+          schedule,
+          target.values,
+          "stopage"
+        );
+
+        const oldTime = adminGet_(
+          schedule,
+          target.values,
+          "stopage_time"
+        );
+
+        if (!String(c.stopage_name || "").trim()) {
+          c.stopage_name = oldName;
+        }
+
+        if (
+          c.stopage_time === "" ||
+          c.stopage_time == null
+        ) {
+          c.stopage_time = oldTime;
+        }
+      }
+
+      // ADD requires a name. Time and location are optional.
+      if (
+        operation === "ADD" &&
+        !String(c.stopage_name || "").trim()
+      ) {
+        throw new Error("Stopage name is required for a new stop.");
+      }
+
+      const sequence = Number(c.sequence);
+
+      if (!Number.isInteger(sequence) || sequence < 1) {
+        throw new Error("Invalid sequence.");
+      }
+
+      // Location is optional, but both coordinates must be supplied together.
+      const latEmpty =
+        c.latitude === "" || c.latitude == null;
+
+      const lngEmpty =
+        c.longitude === "" || c.longitude == null;
+
+      if (latEmpty !== lngEmpty) {
+        throw new Error(
+          "Latitude and longitude must be supplied together."
+        );
+      }
+
+      if (!latEmpty) {
+
+        const latitude = Number(c.latitude);
+        const longitude = Number(c.longitude);
+
+        if (
+          !Number.isFinite(latitude) ||
+          latitude < -90 ||
+          latitude > 90
+        ) {
+          throw new Error("Latitude is out of range.");
+        }
+
+        if (
+          !Number.isFinite(longitude) ||
+          longitude < -180 ||
+          longitude > 180
+        ) {
+          throw new Error("Longitude is out of range.");
+        }
+
+        c.latitude = latitude;
+        c.longitude = longitude;
+      }
+    }
+
+    return {
+      contribution: c,
+      operation: operation,
+      target: target
+    };
+  });
+
+  const targetNumbers = plans
+    .filter(p => p.target)
+    .map(p => p.target.rowNumber);
+
+  if (new Set(targetNumbers).size !== targetNumbers.length) {
+    throw new Error("Multiple contributions target the same schedule row.");
+  }
+
+  /*
+   * Prepare Stops in memory.
+   */
+
+  const stopRows = stops.values.map(row => row.slice());
+
+  const stopIdIndex = adminCol_(stops, "stop_id");
+  const stopNameIndex = adminCol_(stops, "stopage_name");
+  const stopLatIndex = adminCol_(stops, "latitude");
+  const stopLngIndex = adminCol_(stops, "longitude");
+
+  function resolveStopId_(c, oldStopId) {
+
+    let stopId = String(c.stop_id || oldStopId || "").trim();
+
+    if (!stopId) {
+      stopId = "STP-" + Utilities.getUuid();
+    }
+
+    const foundIndex = stopRows.findIndex(row =>
+      String(row[stopIdIndex]).trim() === stopId
+    );
+
+    if (foundIndex === -1) {
+
+      const newRow = stops.headers.map(() => "");
+
+      newRow[stopIdIndex] = stopId;
+      newRow[stopNameIndex] = c.stopage_name || "";
+      newRow[stopLatIndex] = c.latitude ?? "";
+      newRow[stopLngIndex] = c.longitude ?? "";
+
+      stopRows.push(newRow);
+
+    } else {
+
+      if (c.stopage_name) {
+        stopRows[foundIndex][stopNameIndex] = c.stopage_name;
+      }
+
+      if (
+        c.latitude !== "" && c.latitude != null &&
+        c.longitude !== "" && c.longitude != null
+      ) {
+        stopRows[foundIndex][stopLatIndex] = c.latitude;
+        stopRows[foundIndex][stopLngIndex] = c.longitude;
+      }
+    }
+
+    return stopId;
+  }
+
+  /*
+   * Prepare all schedule rows in memory.
+   */
+
+  const originalRows = schedule.values.map((row, index) => ({
+    values: row.slice(),
+    rowNumber: index + 2,
+    trip: String(
+      adminGet_(schedule, row, "trip_id")
+    ).trim() === tripId
+  }));
+
+  const tripRows = originalRows.filter(item => item.trip);
+  const otherRows = originalRows.filter(item => !item.trip);
+
+  /*
+   * Validate that the trip already exists.
+   */
+
+  if (!tripRows.length) {
+    throw new Error("Selected trip was not found in BusSchedule.");
+  }
+
+  /*
+   * Ensure the existing trip belongs to the selected bus.
+   */
+
+  tripRows.forEach(item => {
+
+    const row = item.values;
+
+    if (
+      String(adminGet_(schedule, row, "bus_name")).trim() !== busName
+    ) {
+      throw new Error("Trip bus name does not match.");
+    }
+  });
+
+  let workingTrip = tripRows.map(item => ({
+    values: item.values.slice(),
+    originalRow: item.rowNumber
+  }));
+
+  /*
+   * Apply REMOVE operations.
+   */
+
+  plans
+    .filter(p => p.operation === "REMOVE")
+    .forEach(plan => {
+
+      const index = workingTrip.findIndex(item =>
+        item.originalRow === plan.target.rowNumber
+      );
+
+      if (index < 0) {
+        throw new Error("Removal target is no longer available.");
+      }
+
+      workingTrip.splice(index, 1);
+    });
+
+  /*
+   * Apply UPDATE operations.
+   */
+
+  plans
+    .filter(p => p.operation === "UPDATE")
+    .sort((a, b) =>
+      Number(a.contribution.sequence) -
+      Number(b.contribution.sequence)
+    )
+    .forEach(plan => {
+
+      const c = plan.contribution;
+
+      const index = workingTrip.findIndex(item =>
+        item.originalRow === plan.target.rowNumber
+      );
+
+      if (index < 0) {
+        throw new Error("Update target is no longer available.");
+      }
+
+      const item = workingTrip.splice(index, 1)[0];
+
+      const oldStopId = String(
+        adminGet_(schedule, plan.target.values, "stop_id") || ""
+      ).trim();
+
+      const stopId = resolveStopId_(c, oldStopId);
+
+      adminPut_(schedule, item.values, "stop_id", stopId);
+      adminPut_(schedule, item.values, "stopage", c.stopage_name);
+      adminPut_(schedule, item.values, "stopage_time", c.stopage_time);
+      adminPut_(schedule, item.values, "verification_status", "VERIFIED");
+
+      const newIndex = Math.min(
+        Number(c.sequence) - 1,
+        workingTrip.length
+      );
+
+      workingTrip.splice(newIndex, 0, item);
+    });
+
+  /*
+   * Apply ADD operations.
+   */
+
+  plans
+    .filter(p => p.operation === "ADD")
+    .sort((a, b) =>
+      Number(a.contribution.sequence) -
+      Number(b.contribution.sequence)
+    )
+    .forEach(plan => {
+
+      const c = plan.contribution;
+
+      const stopId = resolveStopId_(c, "");
+
+      const newRow = adminMakeRow_(schedule, {
+        bus_name: busName,
+        direction: c.direction,
+        trip_time: c.trip_time,
+        stopage_time: c.stopage_time || "",
+        stopage: c.stopage_name,
+        sequence: Number(c.sequence),
+        verification_status: "VERIFIED",
+        source_image: "",
+        trip_id: tripId,
+        stop_id: stopId
+      });
+
+      const newItem = {
+        values: newRow,
+        originalRow: null
+      };
+
+      const newIndex = Math.min(
+        Number(c.sequence) - 1,
+        workingTrip.length
+      );
+
+      workingTrip.splice(newIndex, 0, newItem);
+    });
+
+  /*
+   * Final sequence numbers.
+   */
+
+  workingTrip.forEach((item, index) => {
+    adminPut_(schedule, item.values, "sequence", index + 1);
+  });
+
+  /*
+   * Preserve all other trips.
+   */
+
+  const firstOriginalIndex = originalRows.findIndex(item => item.trip);
+
+  const otherItems = originalRows
+    .filter(item => !item.trip)
+    .map(item => item.values);
+
+  const insertAt = originalRows
+    .slice(0, firstOriginalIndex)
+    .filter(item => !item.trip)
+    .length;
+
+  otherItems.splice(
+    insertAt,
+    0,
+    ...workingTrip.map(item => item.values)
+  );
+
+  /*
+   * Commit prepared data.
+   */
+
+  const stopSheet = stops.sheet;
+  const scheduleSheet = schedule.sheet;
+
+  const oldStopLastRow = stopSheet.getLastRow();
+  const oldScheduleLastRow = scheduleSheet.getLastRow();
+
+  if (oldStopLastRow > 1) {
+    stopSheet.getRange(
+      2, 1,
+      oldStopLastRow - 1,
+      stops.headers.length
+    ).clearContent();
+  }
+
+  if (stopRows.length) {
+    stopSheet.getRange(
+      2, 1,
+      stopRows.length,
+      stops.headers.length
+    ).setValues(stopRows);
+  }
+
+  if (oldScheduleLastRow > 1) {
+    scheduleSheet.getRange(
+      2, 1,
+      oldScheduleLastRow - 1,
+      schedule.headers.length
+    ).clearContent();
+  }
+
+  if (otherItems.length) {
+    scheduleSheet.getRange(
+      2, 1,
+      otherItems.length,
+      schedule.headers.length
+    ).setValues(otherItems);
+  }
+
+  return {
+    success: true,
+    trip_id: tripId,
+    schedule_rows: otherItems.length,
+    stop_rows: stopRows.length
+  };
+}
+
+
+/* =========================================
+   10. ADMIN LOG
+========================================= */
+
+function adminWriteLog_(contributionId, action, adminEmail, note) {
+
+  const log = adminLoadTable_("AdminLog");
+
+  const record = {
+    log_id: "LOG-" + Utilities.getUuid(),
+    contribution_id: contributionId,
+    action: action,
+    admin: adminEmail,
+    timestamp: new Date().toISOString(),
+    note: note || ""
+  };
+
+  log.sheet.appendRow(adminMakeRow_(log, record));
+}
+
+
+/* =========================================
+   11. ROLLBACK HELPERS
+========================================= */
+
+function adminTakeSnapshot_(sheetName) {
+
+  const sheet = SpreadsheetApp.getActiveSpreadsheet()
+    .getSheetByName(sheetName);
+
+  if (!sheet) {
+    throw new Error("Cannot snapshot missing sheet: " + sheetName);
+  }
+
+  return {
+    sheet: sheet,
+    name: sheetName,
+    values: sheet.getDataRange().getValues()
+  };
+}
+
+
+function adminRestoreSnapshot_(snapshot) {
+
+  const sheet = snapshot.sheet;
+  const oldValues = snapshot.values;
+
+  const oldRows = oldValues.length;
+  const oldColumns = oldValues[0]
+    ? oldValues[0].length
+    : 1;
+
+  const currentRows = Math.max(
+    sheet.getLastRow(),
+    oldRows,
+    1
+  );
+
+  const currentColumns = Math.max(
+    sheet.getLastColumn(),
+    oldColumns,
+    1
+  );
+
+  if (sheet.getMaxRows() < oldRows) {
+    sheet.insertRowsAfter(
+      sheet.getMaxRows(),
+      oldRows - sheet.getMaxRows()
+    );
+  }
+
+  if (sheet.getMaxColumns() < oldColumns) {
+    sheet.insertColumnsAfter(
+      sheet.getMaxColumns(),
+      oldColumns - sheet.getMaxColumns()
+    );
+  }
+
+  sheet.getRange(
+    1,
+    1,
+    currentRows,
+    currentColumns
+  ).clearContent();
+
+  if (oldRows > 0 && oldColumns > 0) {
+    sheet.getRange(
+      1,
+      1,
+      oldRows,
+      oldColumns
+    ).setValues(oldValues);
+  }
+}
+
+
+
+/* =========================================
+   12. INDIVIDUAL + BATCH REVIEW
+========================================= */
+
+function adminReview_(id, isBatch, decision, note) {
+
+  const adminEmail = getAdminIdentity_();
+
+  decision = String(decision || "")
+    .trim()
+    .toUpperCase();
+
+  if (!["APPROVE", "REJECT"].includes(decision)) {
+    throw new Error("Decision must be APPROVE or REJECT.");
+  }
+
+  if (!String(id || "").trim()) {
+    throw new Error("Contribution ID or Batch ID is required.");
+  }
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+
+  let snapshots = [];
+
+  try {
+
+    /*
+     * Snapshot all affected sheets before making changes.
+     */
+
+    const sheetNames = [
+      "Stops",
+      "BusSchedule",
+      "Contributions",
+      "AdminLog"
+    ];
+
+    snapshots = sheetNames.map(name =>
+      adminTakeSnapshot_(name)
+    );
+
+    const table = adminLoadTable_(
+      CONTRIBUTION_CONFIG.SHEET_NAME
+    );
+
+    const idColumn = isBatch
+      ? "batch_id"
+      : "contribution_id";
+
+    const idIndex = adminCol_(table, idColumn);
+    const statusIndex = adminCol_(table, "status");
+
+    const selected = [];
+
+    table.values.forEach((row, index) => {
+
+      const matches =
+        String(row[idIndex]).trim() === String(id).trim();
+
+      const pending =
+        String(row[statusIndex]).trim().toLowerCase() === "pending";
+
+      if (matches && pending) {
+        selected.push({
+          rowNumber: index + 2,
+          values: row
+        });
+      }
+    });
+
+    if (!selected.length) {
+      throw new Error("No Pending Contribution found.");
+    }
+
+    const contributions = selected.map(item => {
+
+      const obj = {};
+
+      table.headers.forEach((header, index) => {
+        obj[header] = item.values[index];
+      });
+
+      obj._rowNumber = item.rowNumber;
+
+      return obj;
+    });
+
+    let applyResult = null;
+
+    if (decision === "APPROVE") {
+      applyResult = adminApplyApproved_(contributions);
+    }
+
+    const now = new Date().toISOString();
+
+    contributions.forEach(c => {
+
+      const rowNumber = c._rowNumber;
+
+      table.sheet.getRange(
+        rowNumber,
+        adminCol_(table, "status") + 1
+      ).setValue(
+        decision === "APPROVE" ? "Approved" : "Rejected"
+      );
+
+      table.sheet.getRange(
+        rowNumber,
+        adminCol_(table, "reviewed_at") + 1
+      ).setValue(now);
+
+      table.sheet.getRange(
+        rowNumber,
+        adminCol_(table, "reviewed_by") + 1
+      ).setValue(adminEmail);
+
+      table.sheet.getRange(
+        rowNumber,
+        adminCol_(table, "admin_note") + 1
+      ).setValue(note || "");
+
+      adminWriteLog_(
+        c.contribution_id,
+        decision,
+        adminEmail,
+        note
+      );
+    });
+
+    return {
+      success: true,
+      decision: decision,
+      reviewed_count: contributions.length,
+      reviewed_by: adminEmail,
+      apply_result: applyResult
+    };
+
+  } catch (error) {
+
+    /*
+     * Restore previous data if anything fails.
+     */
+
+    const rollbackErrors = [];
+
+    for (let i = snapshots.length - 1; i >= 0; i--) {
+
+      try {
+        adminRestoreSnapshot_(snapshots[i]);
+
+      } catch (restoreError) {
+        rollbackErrors.push(
+          snapshots[i].name + ": " + restoreError.message
+        );
+      }
+    }
+
+    if (rollbackErrors.length) {
+      throw new Error(
+        "Approval failed: " + error.message +
+        ". Rollback was incomplete: " +
+        rollbackErrors.join(" | ")
+      );
+    }
+
+    throw new Error(
+      "Approval failed. Previous sheet data was restored. Reason: " +
+      error.message
+    );
+
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+
+/* =========================================
+   13. ADMIN REVIEW FUNCTIONS
+========================================= */
+
+function adminReviewContribution(contributionId, decision, note) {
+
+  return adminReview_(
+    contributionId,
+    false,
+    decision,
+    note
+  );
+}
+
+function adminReviewBatch(batchId, decision, note) {
+
+  return adminReview_(
+    batchId,
+    true,
+    decision,
+    note
+  );
+}
+
+
+/* =========================================
+   14. DATABASE READINESS TEST
+   READ ONLY
+========================================= */
+
+function testAdminApprovalReadiness() {
+
+  const adminEmail = getAdminIdentity_();
+
+  const checks = {
+
+    Buses: [
+      "bus_id",
+      "bus_name"
+    ],
+
+    Stops: [
+      "stop_id",
+      "stopage_name",
+      "latitude",
+      "longitude"
+    ],
+
+    BusSchedule: [
+      "bus_name",
+      "direction",
+      "trip_time",
+      "stopage_time",
+      "stopage",
+      "sequence",
+      "verification_status",
+      "trip_id",
+      "stop_id"
+    ],
+
+    Contributions: [
+      "contribution_id",
+      "batch_id",
+      "submitted_at",
+      "email",
+      "bus_id",
+      "direction",
+      "trip_time",
+      "contribution_type",
+      "stop_id",
+      "stopage_name",
+      "stopage_time",
+      "latitude",
+      "longitude",
+      "status",
+      "admin_note",
+      "reviewed_at",
+      "reviewed_by",
+      "operation",
+      "trip_id",
+      "target_sequence",
+      "sequence"
+    ],
+
+    AdminLog: [
+      "log_id",
+      "contribution_id",
+      "action",
+      "admin",
+      "timestamp",
+      "note"
+    ]
+  };
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const results = [];
+
+  Object.keys(checks).forEach(sheetName => {
+
+    const sheet = ss.getSheetByName(sheetName);
+
+    if (!sheet) {
+      results.push({
+        sheet: sheetName,
+        success: false,
+        error: "Sheet not found"
+      });
+
+      return;
+    }
+
+    const lastColumn = sheet.getLastColumn();
+
+    if (lastColumn < 1) {
+      results.push({
+        sheet: sheetName,
+        success: false,
+        error: "Header row is empty"
+      });
+
+      return;
+    }
+
+    const headers = sheet
+      .getRange(1, 1, 1, lastColumn)
+      .getDisplayValues()[0]
+      .map(h => String(h).trim());
+
+    const missing = checks[sheetName].filter(
+      name => !headers.includes(name)
+    );
+
+    results.push({
+      sheet: sheetName,
+      success: missing.length === 0,
+      missing_headers: missing
+    });
+  });
+
+  const passed = results.every(item => item.success);
+
+  const result = {
+    success: passed,
+    admin_email: adminEmail,
+    results: results
+  };
+
+  Logger.log(JSON.stringify(result, null, 2));
+
+  if (!passed) {
+    throw new Error(
+      "Readiness check failed. See Execution log."
+    );
+  }
+
+  return result;
+}
+
+
+function createAdminTestContribution() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet()
+    .getSheetByName("Contributions");
+
+  if (!sheet) {
+    throw new Error("Contributions sheet not found.");
+  }
+
+  const headers = sheet.getRange(
+    1, 1, 1, sheet.getLastColumn()
+  ).getDisplayValues()[0].map(h => h.trim());
+
+  const testId = "TEST-" + Utilities.getUuid();
+
+  const record = {
+    contribution_id: testId,
+    batch_id: testId,
+    submitted_at: new Date().toISOString(),
+    email: "test@example.com",
+    bus_id: "TEST",
+    direction: "UP",
+    trip_time: "12:00 AM",
+    contribution_type: "TEST",
+    stop_id: "",
+    stopage_name: "ADMIN TEST - DELETE ME",
+    stopage_time: "12:00 AM",
+    latitude: "",
+    longitude: "",
+    status: "Pending",
+    admin_note: "",
+    reviewed_at: "",
+    reviewed_by: "",
+    operation: "ADD",
+    trip_id: "TEST-TRIP",
+    target_sequence: "",
+    sequence: 1
+  };
+
+  const row = headers.map(h =>
+    Object.prototype.hasOwnProperty.call(record, h)
+      ? record[h]
+      : ""
+  );
+
+  sheet.appendRow(row);
+
+  Logger.log("TEST CONTRIBUTION ID: " + testId);
+}
+
+function testAdminReject() {
+  const result = adminReviewContribution(
+    "TEST-9601f2dc-4c2f-4b93-8dc5-334eacc17a3d",
+    "REJECT",
+    "Test rejection - Admin system verification"
+  );
+
+  Logger.log(JSON.stringify(result, null, 2));
+}
+
+function testAdminPostEndpoint() {
+  const payload = {
+    action: "admin_review",
+    id: "TEST-1fdb21b5-b295-4135-ab1c-f78d403fdf96",
+    decision: "REJECT",
+    is_batch: false,
+    note: "Admin POST endpoint test"
+  };
+
+  const response = UrlFetchApp.fetch(
+    "https://script.google.com/macros/s/AKfycbx6QLWoGsMckxiMEQrME8pj35oDp-7HDbP0bcTKkHq7lE2XqwK1SHEs0N6QDj6-gTNa9w/exec",
+    {
+      method: "post",
+      payload: {
+        payload: JSON.stringify(payload)
+      },
+      followRedirects: true,
+      muteHttpExceptions: true
+    }
+  );
+
+  Logger.log("HTTP STATUS: " + response.getResponseCode());
+  Logger.log("RESPONSE: " + response.getContentText());
+}
+function testAdminDoPostHandler() {
+  const payload = {
+    action: "admin_review",
+    id: "TEST-1fdb21b5-b295-4135-ab1c-f78d403fdf96",
+    decision: "REJECT",
+    is_batch: false,
+    note: "Admin doPost handler test"
+  };
+
+  const result = doPost({
+    parameter: {
+      payload: JSON.stringify(payload)
+    }
+  });
+
+  Logger.log(result.getContent());
+}
+
+function getAdminDashboardData() {
+  return getAdminPendingContributions_();
+}
+
+
+function adminEditApplyBatch(batchId, edits, note) {
+
+  const adminEmail = getAdminIdentity_();
+  batchId = String(batchId || "").trim();
+
+  if (!batchId) throw new Error("Batch ID is required.");
+  if (!Array.isArray(edits) || !edits.length) {
+    throw new Error("No edited contributions supplied.");
+  }
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+
+  let snapshots = [];
+
+  try {
+    const sheetNames = [
+      "Stops",
+      "BusSchedule",
+      CONTRIBUTION_CONFIG.SHEET_NAME,
+      "AdminLog"
+    ];
+
+    snapshots = sheetNames.map(name => adminTakeSnapshot_(name));
+
+    const table = adminLoadTable_(CONTRIBUTION_CONFIG.SHEET_NAME);
+    const batchIndex = adminCol_(table, "batch_id");
+    const statusIndex = adminCol_(table, "status");
+
+    const selected = [];
+
+    table.values.forEach((row, index) => {
+      const sameBatch =
+        String(row[batchIndex]).trim() === batchId;
+
+      const pending =
+        String(row[statusIndex]).trim().toLowerCase() === "pending";
+
+      if (sameBatch && pending) {
+        selected.push({
+          rowNumber: index + 2,
+          values: row
+        });
+      }
+    });
+
+    if (!selected.length) {
+      throw new Error("No Pending Contributions found for this batch.");
+    }
+
+    const editMap = new Map();
+
+    edits.forEach(edit => {
+      const id = String(edit.contribution_id || "").trim();
+
+      if (!id) throw new Error("An edited contribution has no ID.");
+      if (editMap.has(id)) {
+        throw new Error("Duplicate contribution edit: " + id);
+      }
+
+      editMap.set(id, edit);
+    });
+
+    if (editMap.size !== selected.length) {
+      throw new Error("Every Pending Contribution must be included.");
+    }
+
+    const contributions = selected.map(item => {
+      const c = {};
+
+      table.headers.forEach((header, index) => {
+        c[header] = item.values[index];
+      });
+
+      c._rowNumber = item.rowNumber;
+
+      const id = String(c.contribution_id || "").trim();
+      const edit = editMap.get(id);
+
+      if (!edit) {
+        throw new Error("Missing edit for contribution: " + id);
+      }
+
+      const operation = String(c.operation || "ADD")
+        .trim().toUpperCase();
+
+      if (!["ADD", "UPDATE", "REMOVE"].includes(operation)) {
+        throw new Error("Invalid operation: " + operation);
+      }
+
+      c.operation = operation;
+
+      if (operation !== "REMOVE") {
+        // Blank input means keep the previously submitted value.
+        const editedName = String(edit.stopage_name ?? "").trim();
+        const editedTime = String(edit.stopage_time ?? "").trim();
+
+        if (editedName) c.stopage_name = editedName;
+        if (editedTime) c.stopage_time = editedTime;
+
+        // A new stop must have a name.
+        if (operation === "ADD" && !String(c.stopage_name || "").trim()) {
+          throw new Error("Stopage name is required for a new stop.");
+        }
+
+        // Location is optional. If supplied, both coordinates are required.
+        const latText = String(edit.latitude ?? "").trim();
+        const lngText = String(edit.longitude ?? "").trim();
+
+        if (latText !== "" || lngText !== "") {
+          if (latText === "" || lngText === "") {
+            throw new Error("Both latitude and longitude are required for a location.");
+          }
+
+          const latitude = Number(latText);
+          const longitude = Number(lngText);
+
+          if (
+            !Number.isFinite(latitude) ||
+            latitude < -90 || latitude > 90
+          ) {
+            throw new Error("Invalid latitude.");
+          }
+
+          if (
+            !Number.isFinite(longitude) ||
+            longitude < -180 || longitude > 180
+          ) {
+            throw new Error("Invalid longitude.");
+          }
+
+          c.latitude = latitude;
+          c.longitude = longitude;
+        }
+      }
+
+      return c;
+    });
+
+    const applyResult = adminApplyApproved_(contributions);
+    const now = new Date().toISOString();
+
+    contributions.forEach(c => {
+      const updates = [
+        ["status", "Approved"],
+        ["reviewed_at", now],
+        ["reviewed_by", adminEmail],
+        ["admin_note", note || ""]
+      ];
+
+      if (c.operation !== "REMOVE") {
+        updates.push(
+          ["stopage_name", c.stopage_name],
+          ["stopage_time", c.stopage_time],
+          ["latitude", c.latitude],
+          ["longitude", c.longitude]
+        );
+      }
+
+      updates.forEach(([column, value]) => {
+        const colIndex = table.headers.indexOf(column);
+
+        // Skip optional columns that do not exist in Contributions.
+        if (colIndex >= 0) {
+          table.sheet
+            .getRange(c._rowNumber, colIndex + 1)
+            .setValue(value);
+        }
+      });
+
+      adminWriteLog_(
+        c.contribution_id,
+        "ADMIN_EDIT_APPLY",
+        adminEmail,
+        note || "Admin edited and applied contribution."
+      );
+    });
+
+    return {
+      success: true,
+      decision: "APPROVED",
+      action: "ADMIN_EDIT_APPLY",
+      reviewed_count: contributions.length,
+      reviewed_by: adminEmail,
+      apply_result: applyResult
+    };
+
+  } catch (error) {
+    const rollbackErrors = [];
+
+    for (let i = snapshots.length - 1; i >= 0; i--) {
+      try {
+        adminRestoreSnapshot_(snapshots[i]);
+      } catch (restoreError) {
+        rollbackErrors.push(
+          snapshots[i].name + ": " + restoreError.message
+        );
+      }
+    }
+
+    if (rollbackErrors.length) {
+      throw new Error(
+        "Admin Edit failed: " + error.message +
+        ". Rollback incomplete: " + rollbackErrors.join(" | ")
+      );
+    }
+
+    throw new Error(
+      "Admin Edit failed. Previous sheet data was restored. Reason: " +
+      error.message
+    );
+
+  } finally {
+    lock.releaseLock();
+  }
+}
