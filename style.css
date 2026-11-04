@@ -2197,3 +2197,45 @@ main{
 .bus-route-stop-name{font-size:14px;font-weight:700}
 .bus-route-stop-time{flex:0 0 auto;color:var(--muted);font-size:12px}
 @media(max-width:640px){.bus-directory-section{width:calc(100% - 28px);margin:35px auto}.bus-directory-toolbar{align-items:flex-start;flex-direction:column}.bus-directory-toolbar input{width:100%}.bus-directory-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.bus-directory-image{height:112px}.bus-directory-card-body{padding:11px}.bus-directory-card-body strong{font-size:15px}.bus-details-header{align-items:flex-start;padding:14px}.bus-details-image{flex-basis:76px;width:76px;height:68px}.bus-details-header h2{font-size:21px}.bus-trip-card{padding:14px}}
+
+
+/* Public route maps and community contribution UI */
+.bus-route-map-wrap{margin-top:18px;padding:14px;border:1px solid var(--border);border-radius:15px;background:var(--surface-soft)}
+.bus-route-map{width:100%;height:280px;min-height:220px;border-radius:11px;background:var(--surface);overflow:hidden}
+.bus-route-map-empty{display:grid;place-items:center;min-height:130px;padding:18px;color:var(--muted);text-align:center;font-size:13px}
+.bus-route-map-note,.contribution-help{margin:9px 0 0;color:var(--muted);font-size:12px;line-height:1.6}
+.bus-route-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:15px}
+.bus-contribute-button,.contribution-submit,.contribution-add-entry{border:0;border-radius:10px;padding:11px 15px;background:var(--primary);color:#fff;font-weight:800;cursor:pointer}
+.bus-contribute-button:hover,.contribution-submit:hover,.contribution-add-entry:hover{background:var(--primary-hover)}
+.contribution-panel{margin-top:15px;padding:18px;border:1px solid var(--border);border-radius:15px;background:var(--surface)}
+.contribution-panel h3{margin:0 0 10px;font-size:18px}
+.contribution-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.contribution-field{min-width:0}
+.contribution-field label{display:block;margin-bottom:6px;font-size:12px;font-weight:800}
+.contribution-field input,.contribution-field select{width:100%;min-width:0;min-height:42px;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--surface-soft);color:var(--text)}
+.contribution-entry{margin-top:14px;padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--surface-soft)}
+.contribution-entry-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+.contribution-entry-head strong{font-size:14px}
+.contribution-remove-entry{border:1px solid var(--border);border-radius:8px;padding:6px 9px;background:var(--surface);color:var(--text);cursor:pointer}
+.contribution-map{width:100%;height:220px;margin-top:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface);overflow:hidden}
+.contribution-location-search{display:flex;gap:8px;margin-top:10px}
+.contribution-location-search input{flex:1;min-width:0}
+.contribution-location-search button{border:1px solid var(--border);border-radius:9px;padding:8px 12px;background:var(--surface);color:var(--text);font-weight:700;cursor:pointer}
+.contribution-location-results{width:100%;margin-top:8px;padding:8px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text)}
+.contribution-coordinates{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}
+.contribution-coordinates input{width:100%;min-width:0;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:12px}
+.contribution-status{margin-top:12px;padding:11px;border-radius:9px;background:var(--primary-soft);color:var(--text);font-size:13px}
+.contribution-status.error{background:color-mix(in srgb,#d94848 12%,var(--surface));}
+.contribution-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:13px}
+.contribution-submit:disabled,.contribution-add-entry:disabled{opacity:.6;cursor:wait}
+.contribution-honeypot{position:absolute!important;left:-10000px!important;width:1px!important;height:1px!important;overflow:hidden!important}
+.bus-trip-card .bus-route-stops li{display:flex;justify-content:space-between;gap:14px}
+.bus-route-stop-time{color:var(--muted);white-space:nowrap}
+.bus-route-stop-time.unknown{font-style:italic}
+@media(max-width:640px){
+  .contribution-grid{grid-template-columns:1fr}
+  .contribution-location-search{flex-direction:column}
+  .bus-route-map{height:240px}
+  .contribution-map{height:205px}
+  .contribution-panel{padding:13px}
+}
