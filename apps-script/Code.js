@@ -453,6 +453,14 @@ function doPost(e) {
         operation !== "REMOVE"
       );
 
+      if (sequence !== "" && (!Number.isInteger(sequence) || sequence < 1)) {
+        throw new Error("Sequence must be a positive whole number.");
+      }
+      if (targetSequence !== "" &&
+          (!Number.isInteger(targetSequence) || targetSequence < 1)) {
+        throw new Error("Target sequence must be a positive whole number.");
+      }
+
       const latitude = contributionNumber(
         stop.latitude,
         "Latitude",
@@ -1715,7 +1723,7 @@ function adminReview_(id, isBatch, decision, note, edits) {
       c._rowNumber = item.rowNumber;
       c._auditUpdates = [];
 
-      if (decision !== "APPROVE") return c;
+      if (decision !== "APPROVE" || !Array.isArray(edits)) return c;
 
       const contributionId = String(c.contribution_id || "").trim();
       const suppliedEdit = editMap.get(contributionId);
