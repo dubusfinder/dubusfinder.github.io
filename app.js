@@ -1044,6 +1044,7 @@ function openContributionPanel(busName, trip, panelIndex) {
         Bus: <strong>${escapeHtml(busName)}</strong> ·
         ${escapeHtml(trip.direction)} · Trip time: ${escapeHtml(trip.trip_time)}
       </p>
+      ${trip.sequenceVerified ? "" : '<p class="contribution-help"><strong>Sequence not fully verified:</strong> proposals to add, remove or reorder stopages cannot be approved until an admin resolves the unknown sequence. Corrections to existing numbered stopages can be approved without reordering.</p>'}
       <div class="contribution-field" style="margin-top:12px">
         <label for="contribution-email-${panelIndex}">DU email format</label>
         <input id="contribution-email-${panelIndex}" type="email" autocomplete="email"
