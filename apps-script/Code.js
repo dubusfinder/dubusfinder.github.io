@@ -1328,6 +1328,24 @@ function adminApplyApproved_(contributions) {
     throw new Error("Selected trip was not found in BusSchedule.");
   }
 
+  const sequenceVerified = tripRows.every(item => {
+    const value = String(adminGet_(schedule, item.values, "sequence") ?? "").trim();
+    return value !== "" && Number.isInteger(Number(value)) && Number(value) > 0;
+  });
+
+  if (!sequenceVerified) {
+    const unsafeRouteChange = plans.some(plan =>
+      plan.operation !== "UPDATE" ||
+      Number(plan.contribution.sequence) !== Number(plan.contribution.target_sequence)
+    );
+
+    if (unsafeRouteChange) {
+      throw new Error(
+        "This trip contains unverified sequence values. ADD, REMOVE or reorder changes are paused until an admin resolves the trip sequence. A time/name/location correction to an existing numbered stopage can still be approved without changing route order."
+      );
+    }
+  }
+
   /*
    * Ensure the existing trip belongs to the selected bus.
    */
@@ -1389,7 +1407,9 @@ function adminApplyApproved_(contributions) {
         throw new Error("Update target is no longer available.");
       }
 
-      const item = workingTrip.splice(index, 1)[0];
+      const item = sequenceVerified
+        ? workingTrip.splice(index, 1)[0]
+        : workingTrip[index];
 
       const oldStopId = String(
         adminGet_(schedule, plan.target.values, "stop_id") || ""
@@ -1402,12 +1422,13 @@ function adminApplyApproved_(contributions) {
       adminPut_(schedule, item.values, "stopage_time", c.stopage_time);
       adminPut_(schedule, item.values, "verification_status", "VERIFIED");
 
-      const newIndex = Math.min(
-        Number(c.sequence) - 1,
-        workingTrip.length
-      );
-
-      workingTrip.splice(newIndex, 0, item);
+      if (sequenceVerified) {
+        const newIndex = Math.min(
+          Number(c.sequence) - 1,
+          workingTrip.length
+        );
+        workingTrip.splice(newIndex, 0, item);
+      }
     });
 
   /*
@@ -1459,9 +1480,11 @@ function adminApplyApproved_(contributions) {
    * Final sequence numbers.
    */
 
-  workingTrip.forEach((item, index) => {
-    adminPut_(schedule, item.values, "sequence", index + 1);
-  });
+  if (sequenceVerified) {
+    workingTrip.forEach((item, index) => {
+      adminPut_(schedule, item.values, "sequence", index + 1);
+    });
+  }
 
   /*
    * Preserve all other trips.
