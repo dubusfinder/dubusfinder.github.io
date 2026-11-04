@@ -989,6 +989,26 @@ function adminMakeRow_(table, record) {
   );
 }
 
+function adminAssertNoDataFormulas_(table) {
+  const lastRow = table.sheet.getLastRow();
+  if (lastRow < 2) return;
+
+  const formulas = table.sheet.getRange(
+    2, 1, lastRow - 1, table.headers.length
+  ).getFormulas();
+
+  const hasFormula = formulas.some(row =>
+    row.some(formula => String(formula || "").trim() !== "")
+  );
+
+  if (hasFormula) {
+    throw new Error(
+      "Formula cells were found in " + table.sheet.getName() +
+      ". Approval was stopped to avoid replacing formulas with static values."
+    );
+  }
+}
+
 
 /* =========================================
    8. SCHEDULE TARGET FINDER
@@ -1052,6 +1072,10 @@ function adminApplyApproved_(contributions) {
   const schedule = adminLoadTable_(SHEETS.schedule);
   const stops = adminLoadTable_(SHEETS.stops);
   const buses = adminLoadTable_(SHEETS.buses);
+
+  // This engine reorders full trip rows. Stop rather than flatten sheet formulas.
+  adminAssertNoDataFormulas_(schedule);
+  adminAssertNoDataFormulas_(stops);
 
   [
     "bus_name",
@@ -1545,10 +1569,12 @@ function adminTakeSnapshot_(sheetName) {
     throw new Error("Cannot snapshot missing sheet: " + sheetName);
   }
 
+  const range = sheet.getDataRange();
   return {
     sheet: sheet,
     name: sheetName,
-    values: sheet.getDataRange().getValues()
+    values: range.getValues(),
+    formulas: range.getFormulas()
   };
 }
 
@@ -1603,6 +1629,15 @@ function adminRestoreSnapshot_(snapshot) {
       oldRows,
       oldColumns
     ).setValues(oldValues);
+
+    const formulas = snapshot.formulas || [];
+    formulas.forEach((row, rowIndex) => {
+      row.forEach((formula, columnIndex) => {
+        if (String(formula || "").trim()) {
+          sheet.getRange(rowIndex + 1, columnIndex + 1).setFormula(formula);
+        }
+      });
+    });
   }
 }
 
@@ -2165,8 +2200,15 @@ function adminSetStopLocation(stopId, latitude, longitude, note) {
     }
 
     const rowNumber = matches[0];
-    table.sheet.getRange(rowNumber, latIndex + 1).setValue(lat);
-    table.sheet.getRange(rowNumber, lngIndex + 1).setValue(lng);
+    const latitudeCell = table.sheet.getRange(rowNumber, latIndex + 1);
+    const longitudeCell = table.sheet.getRange(rowNumber, lngIndex + 1);
+
+    if (latitudeCell.getFormula() || longitudeCell.getFormula()) {
+      throw new Error("Selected coordinate cells contain formulas and cannot be overwritten.");
+    }
+
+    latitudeCell.setValue(lat);
+    longitudeCell.setValue(lng);
 
     adminWriteLog_(
       "STOP:" + id,
