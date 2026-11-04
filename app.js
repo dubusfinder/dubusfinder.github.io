@@ -370,6 +370,7 @@ function applyDatabase(data, source) {
 
   renderFavoriteSection();
   renderRecentSection();
+  renderBusDirectory();
 
   return true;
 }
@@ -578,6 +579,199 @@ function getStopNames() {
 
   return [...names].filter(Boolean);
 }
+
+/* =========================================
+   BUS DIRECTORY + BUS DETAILS
+========================================= */
+
+function getBusScheduleRows(busName) {
+  const target = normalize(busName);
+  return scheduleRows.filter(row =>
+    normalize(row.bus_name) === target
+  );
+}
+
+function getBusTripGroups(busName) {
+  const rows = getBusScheduleRows(busName);
+  const groups = new Map();
+
+  rows.forEach(row => {
+    const tripId = String(row.trip_id || "").trim();
+    const fallbackKey = [
+      normalize(row.direction),
+      normalize(row.trip_time)
+    ].join("|");
+    const key = tripId || fallbackKey;
+
+    if (!groups.has(key)) {
+      groups.set(key, {
+        trip_id: tripId,
+        direction: row.direction || "Direction unavailable",
+        trip_time: row.trip_time || "Time unavailable",
+        stops: []
+      });
+    }
+
+    groups.get(key).stops.push(row);
+  });
+
+  return [...groups.values()]
+    .map(group => ({
+      ...group,
+      stops: group.stops.sort((a, b) => {
+        const aSequence = Number(a.sequence);
+        const bSequence = Number(b.sequence);
+        if (Number.isFinite(aSequence) && Number.isFinite(bSequence)) {
+          return aSequence - bSequence;
+        }
+        return String(a.sequence || "").localeCompare(String(b.sequence || ""));
+      })
+    }))
+    .sort((a, b) => {
+      const directionOrder = normalize(a.direction).localeCompare(normalize(b.direction));
+      if (directionOrder) return directionOrder;
+      return toMinutes(a.trip_time) - toMinutes(b.trip_time);
+    });
+}
+
+function safeBusImageUrl(value) {
+  const url = String(value || "").trim();
+  return /^https?:\/\//i.test(url) ? url : "";
+}
+
+function renderBusDirectory(filterText = "") {
+  const grid = $("busDirectoryGrid");
+  const count = $("busDirectoryCount");
+  if (!grid) return;
+
+  if (!databaseLoaded) {
+    grid.innerHTML = '<div class="bus-directory-empty">Connecting to bus database...</div>';
+    if (count) count.textContent = "Loading buses...";
+    return;
+  }
+
+  const directory = busRows
+    .map(bus => ({
+      ...bus,
+      bus_name: String(bus.bus_name || bus.name || "").trim()
+    }))
+    .filter(bus => bus.bus_name)
+    .filter((bus, index, all) =>
+      all.findIndex(item => normalize(item.bus_name) === normalize(bus.bus_name)) === index
+    );
+
+  const filtered = directory.filter(bus =>
+    !filterText || getMatchScore(filterText, bus.bus_name) > 0
+  );
+
+  if (count) {
+    count.textContent = filterText
+      ? filtered.length + " of " + directory.length + " buses"
+      : directory.length + " buses";
+  }
+
+  if (!filtered.length) {
+    grid.innerHTML = '<div class="bus-directory-empty">No bus found. Try another name.</div>';
+    return;
+  }
+
+  grid.innerHTML = filtered.map(bus => {
+    const trips = getBusTripGroups(bus.bus_name);
+    const stopCount = new Set(
+      getBusScheduleRows(bus.bus_name).map(row =>
+        normalize(row.stopage || row.stopage_name)
+      ).filter(Boolean)
+    ).size;
+    const imageUrl = safeBusImageUrl(bus.bus_image_url);
+
+    return `
+      <button type="button" class="bus-directory-card" data-directory-bus="${escapeHtml(bus.bus_name)}">
+        <span class="bus-directory-image">
+          <span class="bus-directory-image-fallback">🚌</span>
+          ${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(bus.bus_name)}" loading="lazy">` : ""}
+        </span>
+        <span class="bus-directory-card-body">
+          <strong>${escapeHtml(bus.bus_name)}</strong>
+          <small>${trips.length} trips · ${stopCount} stopages</small>
+          <span class="bus-directory-open">View routes <span aria-hidden="true">→</span></span>
+        </span>
+      </button>
+    `;
+  }).join("");
+
+  grid.querySelectorAll("[data-directory-bus]").forEach(button => {
+    button.addEventListener("click", () => {
+      openBusDetails(button.dataset.directoryBus);
+    });
+  });
+}
+
+function openBusDetails(busName) {
+  const directoryView = $("busDirectoryView");
+  const detailsView = $("busDetailsView");
+  const content = $("busDetailsContent");
+  if (!directoryView || !detailsView || !content) return;
+
+  const bus = busRows.find(item =>
+    normalize(item.bus_name || item.name) === normalize(busName)
+  ) || { bus_name: busName };
+
+  const imageUrl = safeBusImageUrl(bus.bus_image_url);
+  const trips = getBusTripGroups(busName);
+
+  directoryView.hidden = true;
+  detailsView.hidden = false;
+
+  content.innerHTML = `
+    <div class="bus-details-header">
+      <div class="bus-details-image">
+        ${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(busName)}">` : '<span>🚌</span>'}
+      </div>
+      <div>
+        <span class="section-label">BUS DETAILS</span>
+        <h2>${escapeHtml(busName)}</h2>
+        <p>${trips.length} trips · ${getBusScheduleRows(busName).length} schedule entries</p>
+      </div>
+    </div>
+    <div class="bus-trip-list">
+      ${trips.length ? trips.map((trip, index) => {
+        const days = [...new Set(serviceDayRows
+          .filter(day => String(day.trip_id || "").trim() === trip.trip_id && trip.trip_id)
+          .map(day => String(day.operating_day || "").trim())
+          .filter(Boolean))];
+        return `
+          <article class="bus-trip-card">
+            <div class="bus-trip-heading">
+              <span class="bus-trip-direction">${escapeHtml(trip.direction)}</span>
+              <strong>${escapeHtml(trip.trip_time)}</strong>
+            </div>
+            ${days.length ? `<div class="bus-trip-days">Operating days: ${escapeHtml(days.join(", "))}</div>` : ""}
+            <ol class="bus-route-stops">
+              ${trip.stops.map(stop => `
+                <li>
+                  <span class="bus-route-stop-name">${escapeHtml(stop.stopage || stop.stopage_name || "Stopage unavailable")}</span>
+                  <span class="bus-route-stop-time">${escapeHtml(stop.stopage_time || "Time not available")}</span>
+                </li>
+              `).join("")}
+            </ol>
+          </article>
+        `;
+      }).join("") : '<div class="bus-directory-empty">No trip schedule is available for this bus yet.</div>'}
+    </div>
+  `;
+
+  $("bus-directory")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+$("busDirectorySearch")?.addEventListener("input", event => {
+  renderBusDirectory(event.target.value.trim());
+});
+
+$("backToBusDirectory")?.addEventListener("click", () => {
+  $("busDetailsView").hidden = true;
+  $("busDirectoryView").hidden = false;
+  $("bus-directory")?.scrollIntoView({ behavior: "smooth", block: "start" });
+});
 
 /* =========================================
    LIVE SUGGESTIONS
