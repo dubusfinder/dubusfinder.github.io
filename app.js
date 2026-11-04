@@ -617,10 +617,15 @@ function getBusTripGroups(busName) {
 
   return [...groups.values()]
     .map(group => {
-      const sequenceVerified = group.stops.every(row => {
-        const value = String(row.sequence ?? "").trim();
-        return value !== "" && Number.isInteger(Number(value)) && Number(value) > 0;
-      });
+      const sequenceNumbers = group.stops.map(row =>
+        Number(String(row.sequence ?? "").trim())
+      );
+      const sequenceVerified =
+        group.stops.every(row => {
+          const value = String(row.sequence ?? "").trim();
+          return value !== "" && Number.isInteger(Number(value)) && Number(value) > 0;
+        }) &&
+        new Set(sequenceNumbers).size === sequenceNumbers.length;
 
       // Keep source row order when any sequence is unknown; never infer a route order.
       const stops = sequenceVerified
