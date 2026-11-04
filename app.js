@@ -858,6 +858,8 @@ function getVerifiedCoordinates(record) {
 
 function initializePublicRouteMap(mapElement, noteElement, trip) {
   if (!mapElement) return;
+
+  const renderMap = () => {
   const points = trip.stops.map(row => {
     const stop = findStopRecordForScheduleRow(row);
     return { row, stop, coordinates: getVerifiedCoordinates(stop) };
@@ -914,6 +916,20 @@ function initializePublicRouteMap(mapElement, noteElement, trip) {
   if (bounds.length === 1) map.setView(bounds[0], 16);
   else map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
   setTimeout(() => map.invalidateSize(), 120);
+  };
+
+  // Avoid creating many OpenStreetMap tile requests before a trip map is visible.
+  if ("IntersectionObserver" in window) {
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        observer.disconnect();
+        renderMap();
+      }
+    }, { rootMargin: "160px" });
+    observer.observe(mapElement);
+  } else {
+    renderMap();
+  }
 }
 
 function openContributionPanel(busName, trip, panelIndex) {
