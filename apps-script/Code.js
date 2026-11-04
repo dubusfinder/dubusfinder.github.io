@@ -639,17 +639,19 @@ function getAdminPendingContributions_() {
     throw new Error("Missing Contributions column: status");
   }
 
-  const statuses = sheet.getRange(2, statusColumn, lastRow - 1, 1)
-    .getDisplayValues();
+  // Let Sheets locate exact Pending cells server-side instead of
+  // transferring every status cell to Apps Script.
+  const pendingMatches = sheet.getRange(2, statusColumn, lastRow - 1, 1)
+    .createTextFinder("pending")
+    .matchCase(false)
+    .matchEntireCell(true)
+    .useRegularExpression(false)
+    .findAll();
 
-  // Collect pending sheet row numbers in their original order.
-  const pendingRows = [];
-
-  statuses.forEach((item, index) => {
-    if (String(item[0] || "").trim().toLowerCase() === "pending") {
-      pendingRows.push(index + 2);
-    }
-  });
+  // Collect matching sheet row numbers in their original order.
+  const pendingRows = pendingMatches
+    .map(cell => cell.getRow())
+    .sort((a, b) => a - b);
 
   if (!pendingRows.length) {
     return {
