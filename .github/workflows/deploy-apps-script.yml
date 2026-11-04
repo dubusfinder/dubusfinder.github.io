@@ -1,4 +1,3 @@
-
 name: Deploy Apps Script
 
 on:
@@ -27,11 +26,18 @@ jobs:
         run: npm install -g @google/clasp
 
       - name: Authenticate clasp
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
         run: |
-          mkdir -p "$HOME"
-          printf '%s' '${{ secrets.CLASPRC_JSON }}' > "$HOME/.clasprc.json"
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
           chmod 600 "$HOME/.clasprc.json"
 
       - name: Push Apps Script source
         working-directory: apps-script
         run: clasp push --force
+
+      - name: Update existing Admin Dashboard deployment
+        working-directory: apps-script
+        env:
+          DEPLOYMENT_ID: AKfycbx6QLWoGsMckxiMEQrME8pj35oDp-7HDbP0bcTKkHq7lE2XqwK1SHEs0N6QDj6-gTNa9w
+        run: clasp update-deployment "$DEPLOYMENT_ID" --description "DU BUS FINDER - Automatic deployment"
