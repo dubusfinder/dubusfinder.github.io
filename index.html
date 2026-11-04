@@ -14,6 +14,7 @@
 
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./favicon.ico">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <link rel="stylesheet" href="./style.css">
 
 </head>
@@ -36,7 +37,6 @@
         <a href="#search-section">লাল বাস</a>
         <a href="#quick-search">Explore</a>
         <a href="#results-section">Schedules</a>
-        <a href="#bus-directory">All Buses</a>
         <a href="#bus-directory">All Buses</a>
       </nav>
 
@@ -385,6 +385,10 @@
 
   </footer>
 
+
+  <!-- Public route and contribution maps use Leaflet + OpenStreetMap. -->
+  <iframe id="contributionPostFrame" name="contributionPostFrame" title="Contribution submission" hidden></iframe>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 
   <!-- JAVASCRIPT -->
   <script src="./app.js"></script>
