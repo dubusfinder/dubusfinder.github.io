@@ -1610,6 +1610,9 @@ function adminReview_(id, isBatch, decision, note) {
         ["admin_note", note || ""]
       ].concat(c._auditUpdates || []);
 
+      // Keep the resolved/generated Stop ID in the Contributions audit row.
+      if (c.stop_id) updates.push(["stop_id", c.stop_id]);
+
       updates.forEach(([column, value]) => {
         const colIndex = table.headers.indexOf(column);
 
