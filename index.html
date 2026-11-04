@@ -36,6 +36,8 @@
         <a href="#search-section">লাল বাস</a>
         <a href="#quick-search">Explore</a>
         <a href="#results-section">Schedules</a>
+        <a href="#bus-directory">All Buses</a>
+        <a href="#bus-directory">All Buses</a>
       </nav>
 
       <div class="header-actions">
@@ -229,6 +231,29 @@
 
     </section>
 
+
+    <!-- BUS DIRECTORY + DETAILS -->
+    <section class="bus-directory-section" id="bus-directory">
+      <div id="busDirectoryView">
+        <div class="section-heading">
+          <span class="section-label">BUS DIRECTORY</span>
+          <h2>All University Buses</h2>
+          <p>Choose a bus to explore its complete routes and schedules.</p>
+        </div>
+        <div class="bus-directory-toolbar">
+          <input type="search" id="busDirectorySearch" placeholder="Search bus name..." autocomplete="off" aria-label="Search buses">
+          <span id="busDirectoryCount" class="bus-directory-count">Loading buses...</span>
+        </div>
+        <div id="busDirectoryGrid" class="bus-directory-grid">
+          <div class="bus-directory-empty">Bus directory will appear after the database connects.</div>
+        </div>
+      </div>
+
+      <div id="busDetailsView" hidden>
+        <button type="button" id="backToBusDirectory" class="bus-back-button">← All Buses</button>
+        <div id="busDetailsContent"></div>
+      </div>
+    </section>
 
     <!-- QUICK SEARCH -->
     <section class="quick-search-section" id="quick-search">
