@@ -2087,15 +2087,21 @@ function adminCreateStopIdMigrationCopy() {
     copy.setName(name);
 
     if (plan.schedule.values.length && plan.updates.length) {
-      const idValues = copy.getRange(
+      const idRange = copy.getRange(
         2,
         plan.stopIdColumn,
         plan.schedule.values.length,
         1
-      ).getValues();
+      );
+      const idValues = idRange.getValues();
+      const idFormulas = idRange.getFormulas();
 
       plan.updates.forEach(update => {
-        idValues[update.rowNumber - 2][0] = update.stopId;
+        const rowIndex = update.rowNumber - 2;
+        if (String(idFormulas[rowIndex][0] || "").trim()) {
+          throw new Error("A stop_id formula was found in the copied sheet; migration copy was not changed.");
+        }
+        idValues[rowIndex][0] = update.stopId;
       });
 
       // Only the stop_id column in the copied sheet is updated.
