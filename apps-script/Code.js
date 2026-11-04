@@ -697,9 +697,14 @@ function adminTimeToSheetValue_(value) {
   let seconds = 0;
 
   if (value instanceof Date) {
-    hours = value.getHours();
-    minutes = value.getMinutes();
-    seconds = value.getSeconds();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const timezone = ss.getSpreadsheetTimeZone();
+    const formatted = Utilities.formatDate(value, timezone, "HH:mm:ss");
+    const parts = formatted.split(":");
+
+    hours = Number(parts[0]);
+    minutes = Number(parts[1]);
+    seconds = Number(parts[2]);
 
   } else if (typeof value === "number") {
     if (value >= 0 && value < 1) return value;
@@ -1051,6 +1056,7 @@ function adminApplyApproved_(contributions) {
       }
     }
 
+    c.stop_id = stopId;
     return stopId;
   }
 
@@ -1179,7 +1185,7 @@ function adminApplyApproved_(contributions) {
         bus_name: busName,
         direction: c.direction,
         trip_time: c.trip_time,
-        stopage_time: c.stopage_time || "",
+        stopage_time: "",
         stopage: c.stopage_name,
         sequence: Number(c.sequence),
         verification_status: "VERIFIED",
@@ -1187,6 +1193,9 @@ function adminApplyApproved_(contributions) {
         trip_id: tripId,
         stop_id: stopId
       });
+
+      // Convert optional ADD time into a spreadsheet time fraction.
+      adminPut_(schedule, newRow, "stopage_time", c.stopage_time || "");
 
       const newItem = {
         values: newRow,
