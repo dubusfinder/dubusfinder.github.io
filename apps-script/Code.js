@@ -2102,3 +2102,107 @@ function adminCreateStopIdMigrationCopy() {
     lock.releaseLock();
   }
 }
+
+
+/* =========================================
+   14. ADMIN EXISTING STOP LOCATION MANAGER
+========================================= */
+
+function getAdminStopLocationOptions() {
+  const adminEmail = getAdminIdentity_();
+  const rows = getSheetData(SHEETS.stops);
+
+  return {
+    success: true,
+    admin_email: adminEmail,
+    data: rows.map(row => ({
+      stop_id: String(row.stop_id || ""),
+      stopage_name: String(row.stopage_name || ""),
+      latitude: String(row.latitude || ""),
+      longitude: String(row.longitude || "")
+    }))
+  };
+}
+
+function adminSetStopLocation(stopId, latitude, longitude, note) {
+  const adminEmail = getAdminIdentity_();
+  const id = String(stopId || "").trim();
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+
+  if (!id) throw new Error("Select an existing stopage.");
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+    throw new Error("Latitude is invalid.");
+  }
+  if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
+    throw new Error("Longitude is invalid.");
+  }
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  let snapshots = [];
+
+  try {
+    snapshots = [
+      adminTakeSnapshot_(SHEETS.stops),
+      adminTakeSnapshot_("AdminLog")
+    ];
+
+    const table = adminLoadTable_(SHEETS.stops);
+    const idIndex = adminCol_(table, "stop_id");
+    const latIndex = adminCol_(table, "latitude");
+    const lngIndex = adminCol_(table, "longitude");
+
+    const matches = [];
+    table.values.forEach((row, index) => {
+      if (String(row[idIndex] || "").trim() === id) {
+        matches.push(index + 2);
+      }
+    });
+
+    if (matches.length !== 1) {
+      throw new Error("Stopage ID could not be uniquely identified.");
+    }
+
+    const rowNumber = matches[0];
+    table.sheet.getRange(rowNumber, latIndex + 1).setValue(lat);
+    table.sheet.getRange(rowNumber, lngIndex + 1).setValue(lng);
+
+    adminWriteLog_(
+      "STOP:" + id,
+      "ADMIN_SET_STOP_LOCATION",
+      adminEmail,
+      String(note || "").trim() || "Admin updated existing stopage coordinates."
+    );
+
+    return {
+      success: true,
+      stop_id: id,
+      latitude: lat,
+      longitude: lng,
+      updated_by: adminEmail
+    };
+
+  } catch (error) {
+    const rollbackErrors = [];
+    for (let index = snapshots.length - 1; index >= 0; index--) {
+      try {
+        adminRestoreSnapshot_(snapshots[index]);
+      } catch (restoreError) {
+        rollbackErrors.push(
+          snapshots[index].name + ": " + restoreError.message
+        );
+      }
+    }
+    if (rollbackErrors.length) {
+      throw new Error(
+        "Location update failed: " + error.message +
+        ". Rollback incomplete: " + rollbackErrors.join(" | ")
+      );
+    }
+    throw new Error("Location update failed. Previous sheet data was restored. Reason: " + error.message);
+
+  } finally {
+    lock.releaseLock();
+  }
+}
