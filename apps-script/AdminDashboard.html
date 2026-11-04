@@ -469,6 +469,14 @@
                 class="reject"
                 data-batch="${esc(batchId)}"
                 data-index="${index}"
+                data-decision="REQUEST_CORRECTION">
+                Request Correction
+              </button>
+
+              <button
+                class="reject"
+                data-batch="${esc(batchId)}"
+                data-index="${index}"
                 data-decision="REJECT">
                 Reject Batch
               </button>
@@ -856,10 +864,18 @@
       "note-" + index
     ).value;
 
+    if (decision === "REQUEST_CORRECTION" && !note.trim()) {
+      alert("Add an admin note explaining what the contributor needs to correct.");
+      document.getElementById("note-" + index).focus();
+      return;
+    }
+
     const confirmed = confirm(
       decision === "APPROVE"
         ? "Approve this complete contribution batch?"
-        : "Reject this complete contribution batch?"
+        : decision === "REQUEST_CORRECTION"
+          ? "Mark this batch as Correction Requested? It will not change the main database."
+          : "Reject this complete contribution batch? It will not change the main database."
     );
 
     if (!confirmed) return;
@@ -898,7 +914,9 @@
           button.textContent =
             decision === "APPROVE"
               ? "Approve Batch"
-              : "Reject Batch";
+              : decision === "REQUEST_CORRECTION"
+                ? "Request Correction"
+                : "Reject Batch";
         }
       })
 
@@ -911,7 +929,9 @@
         button.textContent =
           decision === "APPROVE"
             ? "Approve Batch"
-            : "Reject Batch";
+            : decision === "REQUEST_CORRECTION"
+              ? "Request Correction"
+              : "Reject Batch";
       })
 
       .adminReviewBatch(batchId, decision, note);
