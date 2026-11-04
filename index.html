@@ -241,7 +241,8 @@
           <p>Choose a bus to explore its complete routes and schedules.</p>
         </div>
         <div class="bus-directory-toolbar">
-          <input type="search" id="busDirectorySearch" placeholder="Search bus name..." autocomplete="off" aria-label="Search buses">
+          <input type="search" id="busDirectorySearch" placeholder="Search bus name..." autocomplete="off" aria-label="Search buses" aria-controls="busDirectorySuggestions" aria-expanded="false">
+          <div id="busDirectorySuggestions" class="bus-directory-suggestions" hidden></div>
           <span id="busDirectoryCount" class="bus-directory-count">Loading buses...</span>
         </div>
         <div id="busDirectoryGrid" class="bus-directory-grid">
