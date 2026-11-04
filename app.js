@@ -815,6 +815,697 @@ $("backToBusDirectory")?.addEventListener("click", () => {
   $("bus-directory")?.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
+
+/* =========================================
+   PUBLIC ROUTE MAPS + COMMUNITY CONTRIBUTIONS
+========================================= */
+
+const contributionMapStates = new Map();
+let contributionEntryCounter = 0;
+let lastGeocodeRequestAt = 0;
+
+function findStopRecordForScheduleRow(row) {
+  const stopId = String(row?.stop_id || "").trim();
+  if (stopId) {
+    const byId = stopRows.filter(stop =>
+      String(stop.stop_id || "").trim() === stopId
+    );
+    if (byId.length === 1) return byId[0];
+  }
+  const name = normalize(row?.stopage || row?.stopage_name).replace(/\s+/g, " ");
+  if (!name) return null;
+  const byName = stopRows.filter(stop =>
+    normalize(stop.stopage_name || stop.stopage || "").replace(/\s+/g, " ") === name
+  );
+  return byName.length === 1 ? byName[0] : null;
+}
+
+function getVerifiedCoordinates(record) {
+  if (!record) return null;
+  const latText = String(record.latitude ?? "").trim();
+  const lngText = String(record.longitude ?? "").trim();
+  if (!latText || !lngText) return null;
+  const lat = Number(latText);
+  const lng = Number(lngText);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) ||
+      lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat, lng };
+}
+
+function initializePublicRouteMap(mapElement, noteElement, trip) {
+  if (!mapElement) return;
+  const points = trip.stops.map(row => {
+    const stop = findStopRecordForScheduleRow(row);
+    return { row, stop, coordinates: getVerifiedCoordinates(stop) };
+  });
+  const located = points.filter(point => point.coordinates);
+
+  if (!located.length) {
+    mapElement.classList.add("bus-route-map-empty");
+    mapElement.textContent = "No verified stopage coordinates are available yet.";
+    if (noteElement) noteElement.textContent =
+      "Map pins will appear after real locations are submitted and approved.";
+    return;
+  }
+  if (typeof L === "undefined") {
+    mapElement.classList.add("bus-route-map-empty");
+    mapElement.textContent = "Map library is unavailable. The stopage list is still available above.";
+    return;
+  }
+
+  const map = L.map(mapElement, { scrollWheelZoom: false }).setView([0, 0], 2);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap contributors"
+  }).addTo(map);
+
+  const bounds = [];
+  located.forEach(point => {
+    const { lat, lng } = point.coordinates;
+    const marker = L.marker([lat, lng]).addTo(map);
+    const name = point.row.stopage || point.row.stopage_name || "Stopage";
+    const time = String(point.row.stopage_time || "").trim() || "Not recorded";
+    const sequence = trip.sequenceVerified ? "Sequence " + point.row.sequence : "Sequence unverified";
+    marker.bindPopup(
+      "<strong>" + escapeHtml(name) + "</strong><br>" +
+      escapeHtml(sequence) + "<br>Stopage time: " + escapeHtml(time)
+    );
+    bounds.push([lat, lng]);
+  });
+
+  const allCoordinatesPresent = points.length > 0 && located.length === points.length;
+  if (trip.sequenceVerified && allCoordinatesPresent) {
+    L.polyline(points.map(point => [
+      point.coordinates.lat, point.coordinates.lng
+    ]), { weight: 4, opacity: 0.8 }).addTo(map);
+    if (noteElement) noteElement.textContent = "Verified sequence · all stopages have coordinates.";
+  } else {
+    const reasons = [];
+    if (!trip.sequenceVerified) reasons.push("sequence contains unknown values");
+    if (!allCoordinatesPresent) reasons.push("some stopages have no verified coordinates");
+    if (noteElement) noteElement.textContent =
+      "Pins shown where locations exist; no connecting route line because " + reasons.join(" and ") + ".";
+  }
+
+  if (bounds.length === 1) map.setView(bounds[0], 16);
+  else map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
+  setTimeout(() => map.invalidateSize(), 120);
+}
+
+function openContributionPanel(busName, trip, panelIndex) {
+  const panel = $("contribution-panel-" + panelIndex);
+  if (!panel || !trip?.trip_id) return;
+  const bus = busRows.find(item =>
+    normalize(item.bus_name || item.name) === normalize(busName)
+  );
+  const busId = String(bus?.bus_id || "").trim();
+
+  if (!busId) {
+    panel.hidden = false;
+    panel.innerHTML = '<div class="contribution-panel"><p>Bus ID is unavailable. Submission cannot continue.</p></div>';
+    return;
+  }
+
+  panel.hidden = false;
+  panel.dataset.busId = busId;
+  panel.dataset.busName = busName;
+  panel.dataset.tripId = trip.trip_id;
+  panel.dataset.tripTime = trip.trip_time;
+  panel.dataset.direction = trip.direction;
+  panel._trip = trip;
+
+  panel.innerHTML = `
+    <div class="contribution-panel">
+      <h3>Suggest a route or time change</h3>
+      <p class="contribution-help">
+        Bus: <strong>${escapeHtml(busName)}</strong> ·
+        ${escapeHtml(trip.direction)} · Trip time: ${escapeHtml(trip.trip_time)}
+      </p>
+      <div class="contribution-field" style="margin-top:12px">
+        <label for="contribution-email-${panelIndex}">DU email format</label>
+        <input id="contribution-email-${panelIndex}" type="email" autocomplete="email"
+          placeholder="username-1234567890@subject.du.ac.bd">
+      </div>
+      <div class="contribution-honeypot" aria-hidden="true">
+        <label>Leave this field empty<input id="contribution-website-${panelIndex}" tabindex="-1" autocomplete="off"></label>
+      </div>
+      <div id="contribution-entries-${panelIndex}"></div>
+      <div class="contribution-actions">
+        <button type="button" class="contribution-add-entry" id="contribution-add-${panelIndex}">+ Add Another Stopage</button>
+        <button type="button" class="contribution-submit" id="contribution-submit-${panelIndex}">Submit for Admin Review</button>
+      </div>
+      <div class="contribution-status" id="contribution-status-${panelIndex}" role="status" aria-live="polite">
+        Stopage time and map location are optional. Unknown values may remain blank.
+      </div>
+    </div>
+  `;
+
+  addContributionEntry(panelIndex, trip);
+  $("contribution-add-" + panelIndex).addEventListener("click", () => {
+    const count = panel.querySelectorAll(".contribution-entry").length;
+    if (count >= 20) {
+      setContributionStatus(panelIndex, "A submission can contain at most 20 stopages.", true);
+      return;
+    }
+    addContributionEntry(panelIndex, trip);
+  });
+  $("contribution-submit-" + panelIndex).addEventListener("click", () => {
+    submitContributionPanel(panelIndex);
+  });
+  setTimeout(() => panel.scrollIntoView({ behavior: "smooth", block: "nearest" }), 50);
+}
+
+function setContributionStatus(panelIndex, message, isError = false) {
+  const element = $("contribution-status-" + panelIndex);
+  if (!element) return;
+  element.textContent = message;
+  element.classList.toggle("error", Boolean(isError));
+}
+
+function addContributionEntry(panelIndex, trip) {
+  const entries = $("contribution-entries-" + panelIndex);
+  if (!entries) return;
+  const entryKey = "contribution-entry-" + panelIndex + "-" + (++contributionEntryCounter);
+  const entryNumber = entries.querySelectorAll(".contribution-entry").length + 1;
+  const existingStops = stopRows
+    .filter(stop => String(stop.stop_id || "").trim() && String(stop.stopage_name || "").trim())
+    .filter((stop, index, all) =>
+      all.findIndex(item => String(item.stop_id).trim() === String(stop.stop_id).trim()) === index
+    );
+  const existingOptions = existingStops.map(stop =>
+    `<option value="${escapeHtml(String(stop.stop_id))}">${escapeHtml(stop.stopage_name)}</option>`
+  ).join("");
+  const targetOptions = trip.stops.map((row, index) => {
+    const sequence = String(row.sequence ?? "").trim();
+    const valid = sequence !== "" && Number.isInteger(Number(sequence)) && Number(sequence) > 0;
+    const name = row.stopage || row.stopage_name || "Unnamed stopage";
+    return `<option value="${index}" ${valid ? "" : "disabled"}>${escapeHtml(name)} · ${valid ? "#" + escapeHtml(sequence) : "sequence unknown"}</option>`;
+  }).join("");
+  const defaultSequence = trip.sequenceVerified
+    ? String(trip.stops.reduce((max, row) => Math.max(max, Number(row.sequence) || 0), 0) + entryNumber)
+    : "";
+
+  const card = document.createElement("div");
+  card.className = "contribution-entry";
+  card.dataset.entryKey = entryKey;
+  card.innerHTML = `
+    <div class="contribution-entry-head">
+      <strong>Stopage proposal ${entryNumber}</strong>
+      <button type="button" class="contribution-remove-entry">Remove</button>
+    </div>
+    <div class="contribution-grid">
+      <div class="contribution-field">
+        <label>Change type</label>
+        <select data-operation>
+          <option value="ADD">Add stopage to this trip</option>
+          <option value="UPDATE">Correct an existing stopage</option>
+          <option value="REMOVE">Propose removing a stopage</option>
+        </select>
+      </div>
+      <div class="contribution-field">
+        <label data-choice-label>Choose an existing stopage or add a new one</label>
+        <select data-stop-choice>
+          <option value="__NEW__">New stopage</option>
+          ${existingOptions}
+        </select>
+      </div>
+      <div class="contribution-field" data-name-wrap>
+        <label>Stopage name</label>
+        <input type="text" data-stop-name maxlength="120" placeholder="Enter stopage name">
+      </div>
+      <div class="contribution-field" data-time-wrap>
+        <label>Stopage time (optional)</label>
+        <input type="text" data-stop-time maxlength="24" placeholder="e.g. 08:30 AM">
+      </div>
+      <div class="contribution-field" data-sequence-wrap>
+        <label>Sequence in this trip</label>
+        <input type="number" data-sequence min="1" step="1" value="${defaultSequence}" placeholder="Enter sequence">
+      </div>
+      <input type="hidden" data-target-sequence value="">
+    </div>
+    <div class="contribution-location" data-location-wrap>
+      <div class="contribution-location-search">
+        <input type="search" data-place-query placeholder="Search a place in OpenStreetMap">
+        <button type="button" data-place-search>Search</button>
+      </div>
+      <select class="contribution-location-results" data-place-results hidden>
+        <option value="">Choose a search result</option>
+      </select>
+      <div class="contribution-map" data-entry-map data-entry-key="${entryKey}" aria-label="Choose this stopage location on map"></div>
+      <p class="contribution-help">Click the map or drag the pin. Location is optional; only approved coordinates become public.</p>
+      <div class="contribution-coordinates">
+        <input type="number" data-latitude step="any" min="-90" max="90" placeholder="Latitude (optional)">
+        <input type="number" data-longitude step="any" min="-180" max="180" placeholder="Longitude (optional)">
+      </div>
+    </div>
+  `;
+  entries.appendChild(card);
+
+  const operationSelect = card.querySelector("[data-operation]");
+  const choiceSelect = card.querySelector("[data-stop-choice]");
+  const nameInput = card.querySelector("[data-stop-name]");
+  const timeInput = card.querySelector("[data-stop-time]");
+  const sequenceInput = card.querySelector("[data-sequence]");
+  const targetSequenceInput = card.querySelector("[data-target-sequence]");
+  const nameWrap = card.querySelector("[data-name-wrap]");
+  const timeWrap = card.querySelector("[data-time-wrap]");
+  const sequenceWrap = card.querySelector("[data-sequence-wrap]");
+  const locationWrap = card.querySelector("[data-location-wrap]");
+  const choiceLabel = card.querySelector("[data-choice-label]");
+
+  initializeContributionMap(card, entryKey, null);
+
+  function fillFromExistingStop(stop) {
+    nameInput.value = stop?.stopage_name || "";
+    nameInput.readOnly = Boolean(stop);
+    setContributionMapLocation(card, entryKey, getVerifiedCoordinates(stop));
+  }
+
+  function fillFromTripStop(index) {
+    const row = trip.stops[index];
+    if (!row) return;
+    const sequence = String(row.sequence ?? "").trim();
+    targetSequenceInput.value = sequence;
+    nameInput.value = row.stopage || row.stopage_name || "";
+    nameInput.readOnly = false;
+    timeInput.value = row.stopage_time || "";
+    sequenceInput.value = sequence;
+    fillContributionCoordinates(card, entryKey, getVerifiedCoordinates(findStopRecordForScheduleRow(row)));
+  }
+
+  function refreshOperation() {
+    const operation = operationSelect.value;
+    const isAdd = operation === "ADD";
+    const isRemove = operation === "REMOVE";
+
+    if (isAdd) {
+      choiceLabel.textContent = "Choose an existing stopage or add a new one";
+      choiceSelect.innerHTML = '<option value="__NEW__">New stopage</option>' + existingOptions;
+      choiceSelect.value = "__NEW__";
+      nameWrap.hidden = false;
+      timeWrap.hidden = false;
+      sequenceWrap.hidden = false;
+      locationWrap.hidden = false;
+      nameInput.value = "";
+      nameInput.readOnly = false;
+      timeInput.value = "";
+      targetSequenceInput.value = "";
+      sequenceInput.value = defaultSequence;
+      fillFromExistingStop(null);
+      return;
+    }
+
+    choiceLabel.textContent = "Select the stopage in this trip";
+    choiceSelect.innerHTML = targetOptions || '<option value="">No target stopages available</option>';
+    const firstValid = [...choiceSelect.options].find(option => !option.disabled && option.value !== "");
+    if (firstValid) choiceSelect.value = firstValid.value;
+    nameWrap.hidden = isRemove;
+    timeWrap.hidden = isRemove;
+    sequenceWrap.hidden = isRemove;
+    locationWrap.hidden = isRemove;
+    if (firstValid) fillFromTripStop(Number(firstValid.value));
+    else {
+      nameInput.value = "";
+      timeInput.value = "";
+      targetSequenceInput.value = "";
+      fillFromExistingStop(null);
+    }
+  }
+
+  operationSelect.addEventListener("change", refreshOperation);
+  choiceSelect.addEventListener("change", () => {
+    if (operationSelect.value === "ADD") {
+      if (choiceSelect.value === "__NEW__") fillFromExistingStop(null);
+      else {
+        const stop = existingStops.find(item =>
+          String(item.stop_id).trim() === String(choiceSelect.value).trim()
+        );
+        fillFromExistingStop(stop || null);
+      }
+    } else {
+      fillFromTripStop(Number(choiceSelect.value));
+    }
+  });
+
+  card.querySelector(".contribution-remove-entry").addEventListener("click", () => {
+    const state = contributionMapStates.get(entryKey);
+    if (state) state.map.remove();
+    contributionMapStates.delete(entryKey);
+    card.remove();
+    entries.querySelectorAll(".contribution-entry-head strong").forEach((label, index) => {
+      label.textContent = "Stopage proposal " + (index + 1);
+    });
+  });
+
+  card.querySelector("[data-place-search]").addEventListener("click", () => {
+    searchContributionPlaces(card, entryKey);
+  });
+  card.querySelector("[data-place-results]").addEventListener("change", event => {
+    const state = contributionMapStates.get(entryKey);
+    const result = state?.searchResults?.[Number(event.target.value)];
+    if (!result) return;
+    setContributionMapLocation(card, entryKey, {
+      lat: Number(result.lat), lng: Number(result.lon)
+    }, true);
+  });
+
+  ["latitude", "longitude"].forEach(field => {
+    card.querySelector("[data-" + field + "]").addEventListener("change", () => {
+      const lat = card.querySelector("[data-latitude]").value;
+      const lng = card.querySelector("[data-longitude]").value;
+      if (lat && lng) {
+        setContributionMapLocation(card, entryKey, {
+          lat: Number(lat), lng: Number(lng)
+        }, false);
+      }
+    });
+  });
+  refreshOperation();
+}
+
+function initializeContributionMap(card, entryKey, initialCoordinates) {
+  const mapElement = card.querySelector("[data-entry-map]");
+  if (!mapElement || typeof L === "undefined") {
+    if (mapElement) mapElement.textContent = "Map library unavailable. You can enter coordinates manually.";
+    return;
+  }
+
+  const map = L.map(mapElement, { scrollWheelZoom: false }).setView([0, 0], 2);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap contributors"
+  }).addTo(map);
+  const state = { map, marker: null, latitude: "", longitude: "", searchResults: [] };
+  contributionMapStates.set(entryKey, state);
+
+  function placeMarker(latitude, longitude, centerMap) {
+    if (state.marker) state.marker.setLatLng([latitude, longitude]);
+    else {
+      state.marker = L.marker([latitude, longitude], { draggable: true }).addTo(map);
+      state.marker.on("dragend", () => {
+        const position = state.marker.getLatLng();
+        setContributionMapLocation(card, entryKey, {
+          lat: position.lat, lng: position.lng
+        }, false);
+      });
+    }
+    state.latitude = latitude;
+    state.longitude = longitude;
+    card.querySelector("[data-latitude]").value = latitude.toFixed(6);
+    card.querySelector("[data-longitude]").value = longitude.toFixed(6);
+    if (centerMap) map.setView([latitude, longitude], 16);
+  }
+
+  map.on("click", event => placeMarker(event.latlng.lat, event.latlng.lng, false));
+  state.placeMarker = placeMarker;
+  if (initialCoordinates) placeMarker(initialCoordinates.lat, initialCoordinates.lng, true);
+  setTimeout(() => map.invalidateSize(), 120);
+}
+
+function fillContributionCoordinates(card, entryKey, coordinates) {
+  setContributionMapLocation(card, entryKey, coordinates, Boolean(coordinates));
+}
+
+function setContributionMapLocation(card, entryKey, coordinates, centerMap = false) {
+  const state = contributionMapStates.get(entryKey);
+  const latInput = card.querySelector("[data-latitude]");
+  const lngInput = card.querySelector("[data-longitude]");
+
+  if (!coordinates) {
+    if (state?.marker) {
+      state.map.removeLayer(state.marker);
+      state.marker = null;
+    }
+    if (state) {
+      state.latitude = "";
+      state.longitude = "";
+    }
+    if (latInput) latInput.value = "";
+    if (lngInput) lngInput.value = "";
+    return;
+  }
+
+  const lat = Number(coordinates.lat);
+  const lng = Number(coordinates.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) ||
+      lat < -90 || lat > 90 || lng < -180 || lng > 180) return;
+
+  if (state?.placeMarker) state.placeMarker(lat, lng, centerMap);
+  else {
+    if (latInput) latInput.value = String(lat);
+    if (lngInput) lngInput.value = String(lng);
+  }
+}
+
+async function searchContributionPlaces(card, entryKey) {
+  const query = card.querySelector("[data-place-query]").value.trim();
+  const button = card.querySelector("[data-place-search]");
+  const resultsSelect = card.querySelector("[data-place-results]");
+  if (query.length < 3) {
+    alert("Enter at least 3 characters to search for a place.");
+    return;
+  }
+
+  button.disabled = true;
+  button.textContent = "Searching...";
+  try {
+    const wait = Math.max(0, 1100 - (Date.now() - lastGeocodeRequestAt));
+    if (wait) await new Promise(resolve => setTimeout(resolve, wait));
+    lastGeocodeRequestAt = Date.now();
+    const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&q=" +
+      encodeURIComponent(query);
+    const response = await fetch(url, { headers: { "Accept": "application/json" } });
+    if (!response.ok) throw new Error("Place search is temporarily unavailable.");
+    const results = await response.json();
+    const state = contributionMapStates.get(entryKey);
+    if (state) state.searchResults = results;
+    resultsSelect.innerHTML = '<option value="">Choose a search result</option>' +
+      results.map((item, index) =>
+        `<option value="${index}">${escapeHtml(item.display_name || "Map result")}</option>`
+      ).join("");
+    resultsSelect.hidden = false;
+    if (!results.length) {
+      const panelId = card.closest("[id^='contribution-panel-']")?.id || "";
+      const panelIndex = Number(panelId.replace("contribution-panel-", ""));
+      setContributionStatus(panelIndex,
+        "No matching place found. You can click the map or move the pin instead.", true);
+    }
+  } catch (error) {
+    alert(error.message || "Place search failed. You can still click the map.");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Search";
+  }
+}
+
+function requestApiJsonp(params, timeoutMs = 12000) {
+  return new Promise((resolve, reject) => {
+    const callbackName = "duBusApi_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
+    const script = document.createElement("script");
+    const url = new URL(API_URL);
+    Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, String(value)));
+    url.searchParams.set("callback", callbackName);
+    let finished = false;
+    const timeout = setTimeout(() => finish(new Error("The bus server did not respond in time.")), timeoutMs);
+
+    function finish(error, data) {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timeout);
+      delete window[callbackName];
+      script.remove();
+      if (error) reject(error);
+      else resolve(data);
+    }
+    window[callbackName] = data => finish(null, data);
+    script.onerror = () => finish(new Error("Could not reach the bus server."));
+    script.src = url.toString();
+    document.head.appendChild(script);
+  });
+}
+
+function createContributionUuid() {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, character => {
+    const random = Math.random() * 16 | 0;
+    const value = character === "x" ? random : (random & 0x3 | 0x8);
+    return value.toString(16);
+  });
+}
+
+async function submitContributionPanel(panelIndex) {
+  const panel = $("contribution-panel-" + panelIndex);
+  const trip = panel?._trip;
+  if (!panel || !trip) return;
+  const submitButton = $("contribution-submit-" + panelIndex);
+  const email = $("contribution-email-" + panelIndex).value.trim();
+  const honeypot = $("contribution-website-" + panelIndex).value;
+  const emailPattern = /^[A-Za-z0-9._%+-]+-[0-9]{10}@subject\.du\.ac\.bd$/i;
+
+  if (!emailPattern.test(email)) {
+    setContributionStatus(panelIndex,
+      "Use the required email format: username-10digit@subject.du.ac.bd. This checks format only, not identity.", true);
+    $("contribution-email-" + panelIndex).focus();
+    return;
+  }
+
+  const entries = [...panel.querySelectorAll(".contribution-entry")];
+  if (!entries.length || entries.length > 20) {
+    setContributionStatus(panelIndex, "Add between 1 and 20 stopages.", true);
+    return;
+  }
+
+  const stops = [];
+  for (let index = 0; index < entries.length; index++) {
+    const card = entries[index];
+    const operation = card.querySelector("[data-operation]").value;
+    const choice = card.querySelector("[data-stop-choice]").value;
+    const name = card.querySelector("[data-stop-name]").value.trim();
+    const time = card.querySelector("[data-stop-time]").value.trim();
+    const sequenceText = card.querySelector("[data-sequence]").value.trim();
+    const latitude = card.querySelector("[data-latitude]").value.trim();
+    const longitude = card.querySelector("[data-longitude]").value.trim();
+
+    if ((latitude === "") !== (longitude === "")) {
+      setContributionStatus(panelIndex,
+        "Stopage " + (index + 1) + ": enter both coordinates or leave both blank.", true);
+      return;
+    }
+
+    const record = {
+      operation,
+      stop_id: "",
+      stopage_name: "",
+      stopage_time: operation === "REMOVE" ? "" : time,
+      sequence: "",
+      target_sequence: "",
+      latitude,
+      longitude,
+      contribution_type: operation === "ADD" ? "ROUTE" : "CORRECTION"
+    };
+
+    if (operation === "ADD") {
+      if (!name) {
+        setContributionStatus(panelIndex, "Stopage " + (index + 1) + ": enter a stopage name.", true);
+        card.querySelector("[data-stop-name]").focus();
+        return;
+      }
+      if (!sequenceText || !Number.isInteger(Number(sequenceText)) || Number(sequenceText) < 1) {
+        setContributionStatus(panelIndex, "Stopage " + (index + 1) + ": enter a valid sequence number.", true);
+        card.querySelector("[data-sequence]").focus();
+        return;
+      }
+      record.stopage_name = name;
+      record.stop_id = choice === "__NEW__" ? "" : choice;
+      record.sequence = Number(sequenceText);
+      if (choice === "__NEW__") record.contribution_type = "NEW_STOP";
+    } else {
+      const target = trip.stops[Number(choice)];
+      if (!target) {
+        setContributionStatus(panelIndex, "Stopage " + (index + 1) + ": select an existing trip stop.", true);
+        return;
+      }
+      const targetSequence = String(target.sequence ?? "").trim();
+      if (!targetSequence || !Number.isInteger(Number(targetSequence)) || Number(targetSequence) < 1) {
+        setContributionStatus(panelIndex, "This target has no verified sequence and cannot be edited safely.", true);
+        return;
+      }
+      record.target_sequence = Number(targetSequence);
+      const stopRecord = findStopRecordForScheduleRow(target);
+      record.stop_id = String(stopRecord?.stop_id || target.stop_id || "").trim();
+      if (operation === "UPDATE") {
+        if (!sequenceText || !Number.isInteger(Number(sequenceText)) || Number(sequenceText) < 1) {
+          setContributionStatus(panelIndex, "Stopage " + (index + 1) + ": enter a valid sequence number.", true);
+          return;
+        }
+        record.stopage_name = name;
+        record.sequence = Number(sequenceText);
+      }
+    }
+    stops.push(record);
+  }
+
+  submitButton.disabled = true;
+  submitButton.textContent = "Submitting...";
+  setContributionStatus(panelIndex, "Preparing a secure submission...");
+
+  try {
+    const nonceResult = await requestApiJsonp({ action: "contribution_nonce" });
+    if (!nonceResult || nonceResult.success !== true || !nonceResult.nonce) {
+      throw new Error(nonceResult?.error || "Could not prepare a secure submission. Please try again.");
+    }
+
+    const batchId = "BATCH-" + createContributionUuid();
+    const payload = {
+      email,
+      bus_id: panel.dataset.busId,
+      direction: panel.dataset.direction,
+      trip_id: panel.dataset.tripId,
+      trip_time: panel.dataset.tripTime,
+      client_batch_id: batchId,
+      nonce: nonceResult.nonce,
+      website: honeypot,
+      stops
+    };
+
+    if (!window.frames["contributionPostFrame"]) {
+      throw new Error("Submission frame is unavailable.");
+    }
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = API_URL;
+    form.target = "contributionPostFrame";
+    form.enctype = "application/x-www-form-urlencoded";
+    form.style.display = "none";
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "payload";
+    input.value = JSON.stringify(payload);
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+    setTimeout(() => form.remove(), 1000);
+
+    setContributionStatus(panelIndex, "Request sent. Verifying that it reached the pending review queue...");
+    let verified = null;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, attempt === 0 ? 1200 : 1500));
+      try {
+        const status = await requestApiJsonp({
+          action: "submission_status",
+          batch_id: batchId
+        });
+        if (status?.success && status.found) {
+          verified = status;
+          break;
+        }
+      } catch (statusError) {
+        // Bounded status checks; never report success without a matching batch.
+      }
+    }
+
+    if (verified && verified.count === stops.length &&
+        String(verified.status).toLowerCase() === "pending") {
+      setContributionStatus(panelIndex,
+        "Submitted successfully. " + verified.count +
+        " stopage proposal(s) are pending admin review. Your email is not shown publicly.");
+      submitButton.textContent = "Submitted";
+    } else if (verified) {
+      setContributionStatus(panelIndex,
+        "Submission reference found with status: " + verified.status +
+        ". Please do not submit the same proposal again.", true);
+      submitButton.textContent = "Submission recorded";
+    } else {
+      setContributionStatus(panelIndex,
+        "The request was sent, but the server could not confirm it. Do not immediately submit again; check with the admin first.", true);
+      submitButton.textContent = "Verification unavailable";
+    }
+  } catch (error) {
+    setContributionStatus(panelIndex, error.message || "Submission failed. Please try again.", true);
+    submitButton.disabled = false;
+    submitButton.textContent = "Submit for Admin Review";
+  }
+}
+
 /* =========================================
    LIVE SUGGESTIONS
 ========================================= */
