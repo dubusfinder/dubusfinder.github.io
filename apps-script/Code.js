@@ -107,11 +107,8 @@ function doGet(e) {
       result = getAdminPendingContributions_();
     
     } else if (action === "admin_dashboard") {
-  const auth = getAdminPendingContributions_();
-
-  if (!auth || auth.success !== true) {
-    throw new Error("Unauthorized");
-  }
+  // Verify admin identity only; do not read the Contributions sheet here.
+  getAdminIdentity_();
 
   const template = HtmlService.createTemplateFromFile(
     "AdminDashboard"
@@ -626,6 +623,11 @@ function getAdminPendingContributions_() {
     total_pending: pending.length,
     data: pending
   };
+}
+
+function getAdminDashboardData() {
+  // The dashboard loads pending rows once through this server function.
+  return getAdminPendingContributions_();
 }
 
 function testAdminPending() {
