@@ -22,6 +22,25 @@ jobs:
         with:
           node-version: 20
 
+      - name: Validate JavaScript syntax
+        run: |
+          node --check app.js
+          node --check apps-script/Code.js
+          node --check apps-script/GitHubSync.js
+          node - <<'NODE'
+          const fs = require('fs');
+          const html = fs.readFileSync('apps-script/AdminDashboard.html', 'utf8');
+          const scripts = [...html.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/gi)]
+            .map(match => match[1].trim())
+            .filter(Boolean);
+          scripts.forEach((source, index) => {
+            const path = `/tmp/admin-dashboard-${index}.js`;
+            fs.writeFileSync(path, source);
+            require('child_process').execFileSync(process.execPath, ['--check', path], { stdio: 'inherit' });
+          });
+          if (!scripts.length) throw new Error('No inline Admin Dashboard JavaScript found.');
+          NODE
+
       - name: Install clasp
         run: npm install -g @google/clasp
 
