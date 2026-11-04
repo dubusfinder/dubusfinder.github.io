@@ -809,6 +809,10 @@ $("busDirectorySearch")?.addEventListener("input", event => {
   renderBusDirectory(event.target.value.trim());
 });
 
+document.querySelector("[data-open-bus-directory]")?.addEventListener("click", () => {
+  setTimeout(() => $("busDirectorySearch")?.focus(), 250);
+});
+
 $("backToBusDirectory")?.addEventListener("click", () => {
   $("busDetailsView").hidden = true;
   $("busDirectoryView").hidden = false;
