@@ -1328,10 +1328,15 @@ function adminApplyApproved_(contributions) {
     throw new Error("Selected trip was not found in BusSchedule.");
   }
 
-  const sequenceVerified = tripRows.every(item => {
-    const value = String(adminGet_(schedule, item.values, "sequence") ?? "").trim();
-    return value !== "" && Number.isInteger(Number(value)) && Number(value) > 0;
-  });
+  const sequenceNumbers = tripRows.map(item =>
+    Number(String(adminGet_(schedule, item.values, "sequence") ?? "").trim())
+  );
+  const sequenceVerified =
+    tripRows.every(item => {
+      const value = String(adminGet_(schedule, item.values, "sequence") ?? "").trim();
+      return value !== "" && Number.isInteger(Number(value)) && Number(value) > 0;
+    }) &&
+    new Set(sequenceNumbers).size === sequenceNumbers.length;
 
   if (!sequenceVerified) {
     const unsafeRouteChange = plans.some(plan =>
