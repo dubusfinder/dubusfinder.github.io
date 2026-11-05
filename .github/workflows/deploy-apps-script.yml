@@ -81,3 +81,9 @@ jobs:
         env:
           DEPLOYMENT_ID: AKfycbx6QLWoGsMckxiMEQrME8pj35oDp-7HDbP0bcTKkHq7lE2XqwK1SHEs0N6QDj6-gTNa9w
         run: clasp update-deployment "$DEPLOYMENT_ID" --description "DU BUS FINDER - Automatic deployment"
+
+      - name: Update public Website API deployment
+        working-directory: apps-script
+        env:
+          DEPLOYMENT_ID: AKfycbzxpN2M7gA9tz2ZIz4V9zxU18MDxH1A9DUndLrAIqoRaXCeLPa9rHng9dXL5Q2XD4pyQA
+        run: clasp update-deployment "$DEPLOYMENT_ID" --description "DU BUS FINDER - Website API automatic deployment"
